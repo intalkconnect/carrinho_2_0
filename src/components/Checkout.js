@@ -30,10 +30,12 @@ const Checkout = () => {
         document.body.style.overflowX = 'hidden';
     }, []);
 
-    const { orcamentos, updateTotalValue } = useOrcamentos();
+    const { orcamentos, updateTotalValue, status } = useOrcamentos();
     const [expanded, setExpanded] = useState('step1');
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [modalItems, setModalItems] = useState([]);
+    const [totalValue, setTotalValue] = useState(0); // Adicionado para cálculo do valor total
+
 
     const [formData, setFormData] = useState({
         nomeCompleto: '',
@@ -43,6 +45,7 @@ const Checkout = () => {
         email: '',
         tipoEntrega: '',
         frete: 0,
+        formaPagamento:''
     });
 
     const [isStep1Completed, setIsStep1Completed] = useState(false);
@@ -57,6 +60,60 @@ const Checkout = () => {
     const handleSnackbarClose = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
     };
+
+        // Cálculo do valor total
+        useEffect(() => {
+            const calculateTotal = () => {
+                const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
+                const total = produtosValidos.reduce(
+                    (sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido,
+                    0
+                ) + parseFloat(formData.frete || 0);
+                setTotalValue(total);
+            };
+    
+            calculateTotal();
+        }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
+    
+
+    // Exibe mensagens baseadas no status do orçamento
+    if (status === 'expired') {
+        return (
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    bgcolor: '#f8d7da',
+                    color: '#721c24',
+                }}
+            >
+                <Typography variant="h5" sx={{ textAlign: 'center' }}>
+                    Este link expirou. Por favor, solicite um novo orçamento.
+                </Typography>
+            </Box>
+        );
+    }
+
+    if (status === 'confirmed') {
+        return (
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    bgcolor: '#d4edda',
+                    color: '#155724',
+                }}
+            >
+                <Typography variant="h5" sx={{ textAlign: 'center' }}>
+                    Esta compra já foi finalizada. Obrigado!
+                </Typography>
+            </Box>
+        );
+    }
 
     // Função para coletar dados e enviar para a API
     const handleCheckoutSubmission = () => {
@@ -100,7 +157,7 @@ const Checkout = () => {
                 cep: formData.cep,
             } : null,
             localRetirada: formData.tipoEntrega === 'retirada' ? formData.localRetirada : null,
-            formaPagamento: formData.formaPagamento,
+            formaPagamento: formData.formaPagamento || "pix",
             produtos: produtosValidos.map((produto) => ({
                 nome: produto.orcamentoItens[0]?.orc_Produto_Nome || 'Produto desconhecido',
                 quantidade: produto.orc_qt_potes,
@@ -130,10 +187,15 @@ const Checkout = () => {
             });
     };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-    };
+const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+    }));
+};
+
 
     const handleAccordionChange = (panel) => (event, isExpanded) => {
         if (
@@ -320,6 +382,8 @@ const Checkout = () => {
                                     handleInputChange={handleInputChange}
                                     prevStep={() => setExpanded('step2')}
                                     finalizeCheckout={handleCheckoutSubmission} // Passa a função
+                                    totalValue={totalValue} // Total agora é passado para Step3
+
                                 />
                             </AccordionDetails>
                         </Accordion>
