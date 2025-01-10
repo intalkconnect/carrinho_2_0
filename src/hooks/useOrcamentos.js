@@ -4,13 +4,21 @@ import { consultarAPI } from '../services/api'; // Certifique-se de ajustar o ca
 const useOrcamentos = () => {
     const [orcamentos, setOrcamentos] = useState([]);
     const [totalValue, setTotalValue] = useState(0);
+    const [status, setStatus] = useState(''); // Novo estado para armazenar o status do orçamento
 
     useEffect(() => {
         const fetchOrcamentos = async () => {
-            const id = window.location.pathname.replace('/', '');
-            const data = await consultarAPI(id);
-            setOrcamentos(data.orcamento || []);
-            updateTotalValue(data.orcamento || []);
+            try {
+                const id = window.location.pathname.replace('/', '');
+                const data = await consultarAPI(id);
+
+                setOrcamentos(data.orcamento || []);
+                setStatus(data.status || ''); // Define o status retornado pela API
+                updateTotalValue(data.orcamento || []);
+            } catch (error) {
+                console.error('Erro ao buscar orçamento:', error);
+                setStatus('error'); // Define um status genérico de erro
+            }
         };
 
         fetchOrcamentos();
@@ -26,7 +34,7 @@ const useOrcamentos = () => {
         setTotalValue(total);
     };
 
-    return { orcamentos, setOrcamentos, totalValue, updateTotalValue };
+    return { orcamentos, setOrcamentos, totalValue, updateTotalValue, status };
 };
 
 export default useOrcamentos;
