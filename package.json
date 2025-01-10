@@ -13,6 +13,7 @@
     "cra-template": "1.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-router-dom": "^6.11.2",
     "react-input-mask": "^3.0.0-alpha.2",
     "react-scripts": "5.0.1",
     "web-vitals": "^4.2.4"
