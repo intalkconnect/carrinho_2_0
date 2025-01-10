@@ -101,6 +101,7 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
             // Zera o frete e limpa o formulário de entrega
             setFrete(0);
             handleInputChange({ target: { name: 'frete', value: '0.00' } }); // Atualiza no formData
+            setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
 
             // Limpa os campos de endereço
             const clearedFields = {
@@ -123,6 +124,10 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                 cidade: true,
                 estado: true,
             });
+
+        }
+        if (value === 'entrega') {
+            setSelectedLocal('')
         }
     };
 
@@ -130,44 +135,62 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
         const selectedId = event.target.value;
         setSelectedLocal(selectedId);
         handleInputChange({ target: { name: 'localRetirada', value: selectedId } });
+
+        if (errors.localRetirada) {
+            setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
+        }
     };
 
     const handleCepBlur = async () => {
+        // Verifica se o CEP tem 8 dígitos
         if (!formData.cep || formData.cep.length !== 8) {
             setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
             return;
         }
-
+    
+        // Cancela requisições ou atualizações anteriores
+        let isCancelled = false;
+    
         try {
+            // Define o estado de carregamento
             setLoadingCep(true);
+    
+            // Faz a busca do CEP
             const data = await consultarCEP(formData.cep);
-
-            // Preenche os valores e ajusta os campos
+    
+            // Cancela a atualização se o componente ou efeito foi desmontado
+            if (isCancelled) return;
+    
+            // Atualiza os campos com os dados do CEP
             handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
             handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
             handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
-            handleInputChange({ target: { name: 'estado', value: data.uf || '' } });
-
+            handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
+    
+            // Atualiza os campos desabilitados
             setDisabledFields({
                 endereco: !!data.logradouro,
                 bairro: !!data.bairro,
                 cidade: !!data.localidade,
-                estado: !!data.uf,
+                estado: !!data.estado,
             });
-
-            // Lógica de frete
+    
+            // Ajusta o frete se necessário
             if (data.local) {
-                setFrete(parseFloat(data.local)); // Frete local direto
+                setFrete(parseFloat(data.local));
             } else if (data.pac || data.sedex) {
                 setMetodosFrete({
                     pac: data.pac ? parseFloat(data.pac) : null,
                     sedex: data.sedex ? parseFloat(data.sedex) : null,
                 });
             } else {
-                setFrete(0); // Sem frete aplicável
+                setFrete(0);
             }
         } catch (error) {
+            // Exibe mensagem de erro
             setSnackbar({ open: true, message: 'Erro ao buscar o CEP. Verifique e tente novamente.', severity: 'warning' });
+    
+            // Libera os campos para edição
             setDisabledFields({
                 endereco: false,
                 bairro: false,
@@ -175,37 +198,90 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                 estado: false,
             });
         } finally {
+            // Garante que o estado de carregamento seja desativado
             setLoadingCep(false);
+    
+            // Cancela atualizações futuras
+            return () => {
+                isCancelled = true;
+            };
         }
     };
-
+    
     const handleCepChange = (e) => {
         const { value } = e.target;
-
-        // Atualiza o valor do CEP no formData usando handleInputChange
+    
+        // Atualiza o valor do CEP no estado global (formData)
         handleInputChange({ target: { name: 'cep', value } });
-
-        // Reseta o frete e fecha o modal
+    
+        // Redefine o frete e esconde o modal de escolha de frete
         if (value.length === 8) {
-            setFrete(0); // Reseta o frete
-            setModalVisible(false); // Fecha o modal, se estiver aberto
+            setFrete(0);
+            setModalVisible(false);
+        }
+    
+        // Cancela quaisquer erros de validação de CEP
+        if (errors.cep) {
+            setErrors((prev) => ({ ...prev, cep: null }));
         }
     };
+    
 
+    const estadosBrasil = [
+        'Acre',
+        'Alagoas',
+        'Amapá',
+        'Amazonas',
+        'Bahia',
+        'Ceará',
+        'Distrito Federal',
+        'Espírito Santo',
+        'Goiás',
+        'Maranhão',
+        'Mato Grosso',
+        'Mato Grosso do Sul',
+        'Minas Gerais',
+        'Pará',
+        'Paraíba',
+        'Paraná',
+        'Pernambuco',
+        'Piauí',
+        'Rio de Janeiro',
+        'Rio Grande do Norte',
+        'Rio Grande do Sul',
+        'Rondônia',
+        'Roraima',
+        'Santa Catarina',
+        'São Paulo',
+        'Sergipe',
+        'Tocantins',
+    ];
 
     const handleNext = () => {
         const newErrors = {};
 
-        // Verifica se o tipo de entrega é 'entrega'
+        // Validação para entrega
         if (tipoEntrega === 'entrega') {
             if (!formData.cep || formData.cep.length !== 8) {
                 newErrors.cep = 'CEP é obrigatório e deve conter 8 dígitos.';
             }
-            if (!formData.endereco) newErrors.endereco = 'Endereço é obrigatório';
-            if (!formData.numero) newErrors.numero = 'Número é obrigatório';
-            if (!formData.bairro) newErrors.bairro = 'Bairro é obrigatório';
-            if (!formData.cidade) newErrors.cidade = 'Cidade é obrigatória';
-            if (!formData.estado) newErrors.estado = 'Estado é obrigatório';
+            if (!formData.endereco) newErrors.endereco = 'Endereço é obrigatório.';
+            if (!formData.numero) newErrors.numero = 'Número é obrigatório.';
+            if (!formData.bairro) newErrors.bairro = 'Bairro é obrigatório.';
+            if (!formData.cidade) newErrors.cidade = 'Cidade é obrigatória.';
+            if (!formData.estado) newErrors.estado = 'Estado é obrigatório.';
+        }
+
+        // Validação para retirada
+        if (tipoEntrega === 'retirada') {
+            if (!selectedLocal) {
+                newErrors.localRetirada = 'Por favor, selecione um local para retirada.';
+            }
+        }
+
+        // Validação caso nenhuma opção tenha sido escolhida
+        if (!tipoEntrega) {
+            newErrors.tipoEntrega = 'Por favor, selecione uma opção: Entrega ou Retirada.';
         }
 
         // Exibe os erros se houver algum
@@ -234,6 +310,7 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
     };
 
 
+
     const selectedInfo = locaisRetirada.find((local) => local.id === selectedLocal);
 
     return (
@@ -245,7 +322,7 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                 sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '600px' }}
             >
                 Escolha a melhor opção para receber ou retirar o seu produto.
-                <FormControl component="fieldset" sx={{ mb: 3 }}>
+                <FormControl component="fieldset" sx={{ mb: 3 }} error={!!errors.tipoEntrega}>
                     <RadioGroup
                         name="tipoEntrega"
                         value={tipoEntrega}
@@ -263,7 +340,13 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                             label="Retirada"
                         />
                     </RadioGroup>
+                    {errors.tipoEntrega && (
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                            {errors.tipoEntrega}
+                        </Typography>
+                    )}
                 </FormControl>
+
 
                 {tipoEntrega === 'entrega' && (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -371,10 +454,13 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                             <MenuItem value="" disabled>
                                 Selecione o Estado
                             </MenuItem>
-                            <MenuItem value="SP">São Paulo</MenuItem>
-                            <MenuItem value="RJ">Rio de Janeiro</MenuItem>
-                            <MenuItem value="MG">Minas Gerais</MenuItem>
+                            {estadosBrasil.map((estado) => (
+                                <MenuItem key={estado} value={estado}>
+                                    {estado}
+                                </MenuItem>
+                            ))}
                         </TextField>
+
                     </Box>
                 )}
 
@@ -448,6 +534,8 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                             onChange={handleLocalChange}
                             fullWidth
                             size="small"
+                            error={!!errors.localRetirada}
+                            helperText={errors.localRetirada}
                             InputLabelProps={{
                                 shrink: true,
                             }}
