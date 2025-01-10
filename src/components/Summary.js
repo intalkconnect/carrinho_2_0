@@ -41,13 +41,15 @@ const Summary = ({ orcamentos, updateTotalValue, frete = 0 }) => { // Aceita `fr
 
     // Cálculo do total incluindo o frete
     const totalValue = orcamentos.reduce(
-        (sum, item) => sum + item.orc_valor_liquido * item.orc_qt_potes,
+        (sum, item) => sum + parseFloat((item.orc_valor_liquido * item.orc_qt_potes).toFixed(2)),
         0
-    ) + frete; // Adiciona o frete ao total
+    ) + parseFloat(frete);
+    // Adiciona o frete ao total
 
     return (
         <>
             <Paper
+                id="summary"
                 elevation={3}
                 sx={{
                     padding: 3,
