@@ -44,8 +44,9 @@ const Checkout = () => {
         celular: '',
         email: '',
         tipoEntrega: '',
+        tipoFrete: '',
         frete: 0,
-        formaPagamento:''
+        formaPagamento: ''
     });
 
     const [isStep1Completed, setIsStep1Completed] = useState(false);
@@ -61,20 +62,20 @@ const Checkout = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
     };
 
-        // Cálculo do valor total
-        useEffect(() => {
-            const calculateTotal = () => {
-                const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
-                const total = produtosValidos.reduce(
-                    (sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido,
-                    0
-                ) + parseFloat(formData.frete || 0);
-                setTotalValue(total);
-            };
-    
-            calculateTotal();
-        }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
-    
+    // Cálculo do valor total
+    useEffect(() => {
+        const calculateTotal = () => {
+            const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
+            const total = produtosValidos.reduce(
+                (sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido,
+                0
+            ) + parseFloat(formData.frete || 0);
+            setTotalValue(total);
+        };
+
+        calculateTotal();
+    }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
+
 
     // Exibe mensagens baseadas no status do orçamento
     if (status === 'expired') {
@@ -155,14 +156,11 @@ const Checkout = () => {
                 cidade: formData.cidade,
                 estado: formData.estado,
                 cep: formData.cep,
+                tipoFrete: formData.tipoFrete
             } : null,
             localRetirada: formData.tipoEntrega === 'retirada' ? formData.localRetirada : null,
             formaPagamento: formData.formaPagamento || "pix",
-            produtos: produtosValidos.map((produto) => ({
-                nome: produto.orcamentoItens[0]?.orc_Produto_Nome || 'Produto desconhecido',
-                quantidade: produto.orc_qt_potes,
-                preco: produto.orc_valor_liquido,
-            })),
+            produtos: produtosValidos,
             frete: parseFloat(formData.frete),
             total: produtosValidos.reduce((sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido, 0) + parseFloat(formData.frete),
         };
@@ -187,14 +185,14 @@ const Checkout = () => {
             });
     };
 
-const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
 
-    setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-    }));
-};
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
 
 
     const handleAccordionChange = (panel) => (event, isExpanded) => {
