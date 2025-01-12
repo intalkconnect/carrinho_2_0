@@ -147,26 +147,26 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
             setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
             return;
         }
-    
+
         // Cancela requisições ou atualizações anteriores
         let isCancelled = false;
-    
+
         try {
             // Define o estado de carregamento
             setLoadingCep(true);
-    
+
             // Faz a busca do CEP
             const data = await consultarCEP(formData.cep);
-    
+
             // Cancela a atualização se o componente ou efeito foi desmontado
             if (isCancelled) return;
-    
+
             // Atualiza os campos com os dados do CEP
             handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
             handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
             handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
             handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
-    
+
             // Atualiza os campos desabilitados
             setDisabledFields({
                 endereco: !!data.logradouro,
@@ -174,7 +174,7 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                 cidade: !!data.localidade,
                 estado: !!data.estado,
             });
-    
+
             // Ajusta o frete se necessário
             if (data.local) {
                 setFrete(parseFloat(data.local));
@@ -183,13 +183,14 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                     pac: data.pac ? parseFloat(data.pac) : null,
                     sedex: data.sedex ? parseFloat(data.sedex) : null,
                 });
+                handleInputChange({ target: { name: 'metodosFrete', value: metodosFrete || '' } });
             } else {
                 setFrete(0);
             }
         } catch (error) {
             // Exibe mensagem de erro
             setSnackbar({ open: true, message: 'Erro ao buscar o CEP. Verifique e tente novamente.', severity: 'warning' });
-    
+
             // Libera os campos para edição
             setDisabledFields({
                 endereco: false,
@@ -200,32 +201,32 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
         } finally {
             // Garante que o estado de carregamento seja desativado
             setLoadingCep(false);
-    
+
             // Cancela atualizações futuras
             return () => {
                 isCancelled = true;
             };
         }
     };
-    
+
     const handleCepChange = (e) => {
         const { value } = e.target;
-    
+
         // Atualiza o valor do CEP no estado global (formData)
         handleInputChange({ target: { name: 'cep', value } });
-    
+
         // Redefine o frete e esconde o modal de escolha de frete
         if (value.length === 8) {
             setFrete(0);
             setModalVisible(false);
         }
-    
+
         // Cancela quaisquer erros de validação de CEP
         if (errors.cep) {
             setErrors((prev) => ({ ...prev, cep: null }));
         }
     };
-    
+
 
     const estadosBrasil = [
         'Acre',
@@ -497,7 +498,12 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                                     sx={{ mb: 1, width: '100%' }}
                                     onClick={() => {
                                         setFrete(metodosFrete.pac);
-                                        handleInputChange({ target: { name: 'frete', value: metodosFrete.pac.toFixed(2) } });
+                                        handleInputChange({
+                                            target: { name: 'frete', value: metodosFrete.pac.toFixed(2) },
+                                        });
+                                        handleInputChange({
+                                            target: { name: 'tipoFrete', value: 'PAC' }, // Define o tipo de frete como 'PAC'
+                                        });
                                         setModalVisible(false);
                                         nextStep(); // Avança ao selecionar PAC
                                     }}
@@ -512,7 +518,12 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                                     sx={{ width: '100%' }}
                                     onClick={() => {
                                         setFrete(metodosFrete.sedex);
-                                        handleInputChange({ target: { name: 'frete', value: metodosFrete.sedex.toFixed(2) } });
+                                        handleInputChange({
+                                            target: { name: 'frete', value: metodosFrete.sedex.toFixed(2) },
+                                        });
+                                        handleInputChange({
+                                            target: { name: 'tipoFrete', value: 'SEDEX' }, // Define o tipo de frete como 'SEDEX'
+                                        });
                                         setModalVisible(false);
                                         nextStep(); // Avança ao selecionar SEDEX
                                     }}
@@ -520,6 +531,7 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                                     SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
                                 </Button>
                             )}
+
                         </Box>
                     </Box>
                 )}
