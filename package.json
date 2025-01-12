@@ -16,7 +16,8 @@
     "react-router-dom": "^6.11.2",
     "react-input-mask": "^3.0.0-alpha.2",
     "react-scripts": "5.0.1",
-    "web-vitals": "^4.2.4"
+    "web-vitals": "^4.2.4",
+    "socket.io-client": "^4.5.0",
   },
   "scripts": {
     "start": "react-scripts start",
