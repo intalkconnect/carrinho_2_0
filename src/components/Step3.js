@@ -20,7 +20,6 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
     useEffect(() => {
         formaPagamentoRef.current = formaPagamento;
-        console.log('Forma de pagamento atualizada:', formaPagamento);
     }, [formaPagamento]);
 
     const [loading, setLoading] = useState(false);
@@ -53,7 +52,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     const paymentIntervalRef = useRef(null);
 
     const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
-    const baseURL = 'https://devops.dkdevs.com.br/webhook';
+    const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
 
     useEffect(() => {
         return () => {
@@ -131,21 +130,21 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             body: JSON.stringify(payload),
         });
         const data = await response.json();
-        activePixId.current = data.body.id;
+        activePixId.current = data.id;
         return data;
     };
 
     const deletePixCharge = async (pixId) => {
         try {
-            const response = await fetch(`${baseURL}/payments/?id=${pixId}`, {
-                method: 'GET',
+            const response = await fetch(`${baseURL}/payments/${pixId}`, {
+                method: 'DELETE',
                 headers: {
                     accept: 'application/json',
                     access_token: ASaasToken,
                 },
             });
             if (response.ok) {
-                console.log("Cobrança Pix excluída com sucesso.");
+
             } else {
                 console.error("Erro ao excluir cobrança Pix.");
             }
@@ -155,7 +154,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     };
 
     const fetchPixQrCode = async (paymentId) => {
-        const response = await fetch(`${baseURL}/payments/?pixQrCode=${paymentId}`, {
+        const response = await fetch(`${baseURL}/payments/byPixQrCode?pixQrCode=${paymentId}`, {
             method: 'GET',
             headers: {
                 accept: 'application/json',
@@ -176,7 +175,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 return;
             }
 
-            const response = await fetch(`${baseURL}/payments/?status=${paymentId}`, {
+            const response = await fetch(`${baseURL}/payments/byStatus?status=${paymentId}`, {
                 method: 'GET',
                 headers: {
                     accept: 'application/json',
@@ -204,7 +203,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             }
 
             const charge = await createPixCharge(customer.id);
-            const pixData = await fetchPixQrCode(charge.body.id);
+            const pixData = await fetchPixQrCode(charge.id);
 
             setQrcode(pixData?.encodedImage || '');
             setPixCopyCode(pixData?.payload || '');
@@ -238,7 +237,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 }
 
                 try {
-                    const status = await checkPaymentStatus(charge.body.id);
+                    const status = await checkPaymentStatus(charge.id);
                     if (status && status.status === 'RECEIVED') {
                         clearInterval(paymentIntervalRef.current);
                         paymentIntervalRef.current = null;
@@ -438,7 +437,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
             const data = await response.json();
 
-            if (response.ok && data.body.status === 'CONFIRMED') {
+            if (response.ok && data.status === 'CONFIRMED') {
                 setPaymentStatus('CONFIRMED');
                 setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
                 setLoading(false);
