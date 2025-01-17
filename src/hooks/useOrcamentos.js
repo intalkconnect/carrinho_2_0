@@ -16,8 +16,7 @@ const useOrcamentos = () => {
                 setStatus(data.status || ''); // Define o status retornado pela API
                 updateTotalValue(data.orcamento || []);
             } catch (error) {
-                console.error('Erro ao buscar orçamento:', error);
-                setStatus('error'); // Define um status genérico de erro
+                return [];
             }
         };
 
