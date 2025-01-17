@@ -19,17 +19,13 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined'; // Importa o ícone
+
 import { Snackbar, Alert } from '@mui/material';
 // Importe as imagens
 import Logo1 from '../assets/logo.webp';
 
 const Checkout = () => {
-    useEffect(() => {
-        document.body.style.margin = '0';
-        document.body.style.padding = '0';
-        document.body.style.overflowX = 'hidden';
-    }, []);
-
     const { orcamentos, updateTotalValue, status } = useOrcamentos();
     const [expanded, setExpanded] = useState('step1');
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -61,6 +57,12 @@ const Checkout = () => {
     const handleSnackbarClose = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
     };
+
+    useEffect(() => {
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.overflowX = 'hidden';
+    }, []);
 
     // Cálculo do valor total
     useEffect(() => {
@@ -115,6 +117,31 @@ const Checkout = () => {
             </Box>
         );
     }
+   
+    if (status !== 'confirmed' && status !== 'expired' && status !== 'pending') {
+        return (
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    bgcolor: '#f8f8f8',
+                    color: '#555',
+                }}
+            >
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#ff9800', marginBottom: 2 }} />
+                <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
+                    Carrinho não encontrado.
+                </Typography>
+                <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                    Verifique o link ou tente novamente mais tarde.
+                </Typography>
+            </Box>
+        );
+    }
+    
 
     // Função para coletar dados e enviar para a API
     const handleCheckoutSubmission = () => {
@@ -136,7 +163,7 @@ const Checkout = () => {
             return;
         }
         const id = window.location.pathname.replace('/', '');
-
+  
         // Monta o payload
         const payload = {
             checkout: id,
@@ -166,7 +193,7 @@ const Checkout = () => {
         };
 
         // Envia o payload para a API
-        fetch('https://devops.dkdevs.com.br/webhook/finish-checkout', {
+        fetch('https://endpoints-checkout.rzyewu.easypanel.host/finish-checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -230,6 +257,31 @@ const Checkout = () => {
         setIsModalVisible(false);
     };
 
+    if (!window.location.pathname.replace('/', '')) {
+        return (
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    bgcolor: '#f4f8fa',
+                    color: '#555',
+                }}
+            >
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#00695c', marginBottom: 2 }} />
+                <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
+                    Seu carrinho está vazio.
+                </Typography>
+                <Typography variant="body1" sx={{ textAlign: 'center' }}>
+                    Adicione produtos antes de continuar.
+                </Typography>
+            </Box>
+        );
+    }
+    
+
     return (
         <Box
             sx={{
@@ -259,6 +311,7 @@ const Checkout = () => {
                     </Container>
                 </Toolbar>
             </AppBar>
+            
             <Container sx={{ marginTop: 3, marginBottom: 3 }}>
                 <Grid container spacing={3}>
                     <Grid
@@ -388,7 +441,7 @@ const Checkout = () => {
                     </Grid>
                 </Grid>
             </Container>
-
+           
             {isModalVisible && (
                 <Modal
                     isVisible={isModalVisible}
