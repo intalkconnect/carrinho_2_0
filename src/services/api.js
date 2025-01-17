@@ -1,5 +1,5 @@
 export const consultarAPI = async (id) => {
-    const url = `https://devops.dkdevs.com.br/webhook/orcamento?id=${id}`;
+    const url = `https://endpoints-checkout.rzyewu.easypanel.host/orcamento?id=${id}`;
 
     try {
         const response = await fetch(url, { method: 'GET' });
@@ -10,13 +10,12 @@ export const consultarAPI = async (id) => {
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error('Erro ao consultar a API:', error);
         return [];
     }
 };
 
 export const consultarCEP = async (cep) => {
-    const url = `https://devops.dkdevs.com.br/webhook/endereco?cep=${cep}`;
+    const url = `https://endpoints-checkout.rzyewu.easypanel.host/frete?cep=${cep}`;
 
     try {
         const response = await fetch(url);
@@ -31,7 +30,6 @@ export const consultarCEP = async (cep) => {
 
         return data;
     } catch (error) {
-        console.error('Erro ao consultar a API de CEP:', error);
         throw error;
     }
 };
