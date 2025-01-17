@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { io } from 'socket.io-client'; // Importando o socket.io-client
+import { io } from 'socket.io-client';
 import {
   Box,
   Button,
@@ -14,39 +14,85 @@ import {
   TableBody,
   Snackbar,
   Alert,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SearchIcon from '@mui/icons-material/Search';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 
-const SOCKET_URL = 'http://localhost:3000'; // URL do Socket.io do servidor (ajuste conforme sua URL)
 
 const CrudPage = () => {
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'dataCompra', direction: 'asc' });
 
-  // Fetch items from API
   useEffect(() => {
-    // Conectar ao servidor Socket.io
-    const socket = io(SOCKET_URL);
-
-    // Escutar por novos eventos de "newCheckout" (ajuste o nome conforme o evento no backend)
-    socket.on('newCheckout', (newCheckout) => {
-      console.log('Novo Checkout recebido:', newCheckout);
-      setItems((prevItems) => [newCheckout, ...prevItems]); // Adiciona o novo item no topo da lista
+    const socket = io('wss://endpoints-checkout.rzyewu.easypanel.host/', {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
-    // Buscar itens iniciais da API
-    fetch('https://devops.dkdevs.com.br/webhook/crud')
-      .then((response) => response.json())
-      .then((data) => {
-        // Filtra os registros com `processo: true`
+    const fetchData = async () => {
+      try {
+        const response = await fetch('https://endpoints-checkout.rzyewu.easypanel.host/itens');
+        const data = await response.json();
         const filteredItems = data.filter((item) => !item.processo);
         setItems(filteredItems);
-      })
-      .catch((error) => console.error('Error fetching data:', error));
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
 
-    // Cleanup do socket quando o componente for desmontado
+    fetchData();
+
+    const updateItemList = (newItem) => {
+      setItems((prevItems) => {
+        const existingIndex = prevItems.findIndex((item) => item._id === newItem._id);
+        if (existingIndex !== -1) {
+          const updatedItems = [...prevItems];
+          updatedItems[existingIndex] = newItem;
+          return updatedItems;
+        }
+        return [newItem, ...prevItems];
+      });
+    };
+
+    socket.on('connect', () => {
+      setSnackbar({
+        open: true,
+        message: 'Conexão WebSocket estabelecida!',
+        severity: 'success',
+      });
+    });
+
+    socket.on('newCheckout', (newCheckout) => {
+      updateItemList(newCheckout);
+    });
+
+    socket.on('checkoutUpdated', (updatedCheckout) => {
+      updateItemList(updatedCheckout);
+    });
+
+    socket.on('checkoutRemoved', (removedCheckout) => {
+      setItems((prevItems) => prevItems.filter((item) => item._id !== removedCheckout.checkoutId));
+    });
+
+    socket.on('disconnect', () => {
+      setSnackbar({
+        open: true,
+        message: 'Desconectado do servidor WebSocket. Tentando reconectar...',
+        severity: 'warning',
+      });
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -62,7 +108,6 @@ const CrudPage = () => {
 
   const handleComplete = (item) => {
     const payload = { _id: item._id, processo: true };
-
     fetch('https://devops.dkdevs.com.br/webhook/finish-process', {
       method: 'POST',
       headers: {
@@ -72,9 +117,7 @@ const CrudPage = () => {
     })
       .then((response) => {
         if (response.ok) {
-          // Remove o item da tabela
           setItems((prevItems) => prevItems.filter((i) => i._id !== item._id));
-
           setSnackbar({
             open: true,
             message: 'Processo concluído com sucesso!',
@@ -96,77 +139,105 @@ const CrudPage = () => {
 
   const handleSnackbarClose = () => setSnackbar({ open: false, message: '', severity: 'info' });
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? -1 : 1;
+    }
+    if (a[sortConfig.key] > b[sortConfig.key]) {
+      return sortConfig.direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
+  const filteredItems = sortedItems.filter((item) =>
+    item.orcamentoFinal?.dadosPessoais?.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.numero_orcamento.includes(searchTerm) ||
+    item.orcamentoFinal?.checkout.includes(searchTerm)
+  );
+
   return (
-    <Box sx={{ padding: 3 }}>
-      <Typography variant="h4" sx={{ marginBottom: 3 }}>
-        Interface CRUD
+    <Box sx={{ padding: 4, backgroundColor: '#f4f6f8' }}>
+      <Typography variant="h4" sx={{ marginBottom: 3, color: '#333' }}>
+        Gerenciamento de Processos de Checkout
       </Typography>
-      <TableContainer component={Paper}>
+
+      <Box sx={{ marginBottom: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <TextField
+          label="Buscar"
+          variant="outlined"
+          fullWidth
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ maxWidth: 400 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
+      <TableContainer component={Paper} sx={{ borderRadius: 2, boxShadow: 3 }}>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell align="center">Pagamento</TableCell>
-              <TableCell align="center">Data da Compra</TableCell>
-              <TableCell align="center">Checkout</TableCell>
-              <TableCell align="center">Nome do Cliente</TableCell>
-              <TableCell align="center">Número do Orçamento</TableCell>
-              <TableCell align="center">Total</TableCell>
-              <TableCell align="center">Ações</TableCell>
+            <TableRow sx={{ backgroundColor: '#1976d2' }}>
+              <TableCell align="center" sx={{ color: '#fff' }}>
+                Pagamento
+              </TableCell>
+              <TableCell align="center" onClick={() => handleSort('dataCompra')} sx={{ cursor: 'pointer', color: '#fff' }}>
+                Data da Compra
+              </TableCell>
+              <TableCell align="center" sx={{ color: '#fff' }}>
+                Checkout
+              </TableCell>
+              <TableCell align="center" onClick={() => handleSort('orcamentoFinal.dadosPessoais.nomeCompleto')} sx={{ cursor: 'pointer', color: '#fff' }}>
+                Nome do Cliente
+              </TableCell>
+              <TableCell align="center" onClick={() => handleSort('numero_orcamento')} sx={{ cursor: 'pointer', color: '#fff' }}>
+                Número do Orçamento
+                {sortConfig.key === 'numero_orcamento' && (sortConfig.direction === 'asc' ? (
+                  <ArrowDownwardIcon sx={{ marginLeft: 1, color: '#fff' }} />
+                ) : (
+                  <ArrowUpwardIcon sx={{ marginLeft: 1, color: '#fff' }} />
+                ))}
+              </TableCell>
+              <TableCell align="center" sx={{ color: '#fff' }}>
+                Total
+              </TableCell>
+              <TableCell align="center" sx={{ color: '#fff' }}>
+                Ações
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => (
-              <TableRow key={item._id}>
-                <TableCell align="center">
-                  {item.status === 'confirmed' ? 'Efetuado' : item.status}
-                </TableCell>
-                <TableCell align="center">
-                  {new Date(item.dataCompra).toLocaleString()}
-                </TableCell>
-                <TableCell align="center">
-                  {item.orcamentoFinal?.checkout || 'N/A'}
-                </TableCell>
-                <TableCell align="center">
-                  {item.orcamentoFinal?.dadosPessoais?.nomeCompleto || 'N/A'}
-                </TableCell>
-                <TableCell align="center">
-                  {item.numero_orcamento || 'N/A'}
-                </TableCell>
+            {filteredItems.map((item) => (
+              <TableRow key={item._id} sx={{ '&:hover': { backgroundColor: '#f1f1f1' } }}>
+                <TableCell align="center">{item.status === 'confirmed' ? 'Efetuado' : item.status}</TableCell>
+                <TableCell align="center">{new Date(item.dataCompra).toLocaleString()}</TableCell>
+                <TableCell align="center">{item.orcamentoFinal?.checkout || 'N/A'}</TableCell>
+                <TableCell align="center">{item.orcamentoFinal?.dadosPessoais?.nomeCompleto || 'N/A'}</TableCell>
+                <TableCell align="center">{item.numero_orcamento || 'N/A'}</TableCell>
                 <TableCell align="center">
                   R${item.orcamentoFinal?.total?.toFixed(2).replace('.', ',') || '0,00'}
                 </TableCell>
                 <TableCell align="center">
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => handleShowDetails(item)}
-                      sx={{
-                        minWidth: 48,
-                        height: 48,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 0,
-                      }}
-                    >
+                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                    <IconButton onClick={() => handleShowDetails(item)} color="primary">
                       <VisibilityIcon />
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={() => handleComplete(item)}
-                      sx={{
-                        minWidth: 48,
-                        height: 48,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 0,
-                      }}
-                    >
+                    </IconButton>
+                    <IconButton onClick={() => handleComplete(item)} color="success">
                       <CheckCircleIcon />
-                    </Button>
+                    </IconButton>
                   </Box>
                 </TableCell>
               </TableRow>
@@ -195,37 +266,59 @@ const CrudPage = () => {
             }}
           >
             <Typography variant="h5" sx={{ marginBottom: 2 }}>
-              Detalhes do Orçamento
+              Detalhes da Entrega
             </Typography>
-            {selectedItem.orcamentoFinal?.enderecoEntrega ? (
+            {selectedItem.orcamentoFinal ? (
               <>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>Endereço:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.endereco},{' '}
-                  {selectedItem.orcamentoFinal.enderecoEntrega.numero}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>Complemento:</strong>{' '}
-                  {selectedItem.orcamentoFinal.enderecoEntrega.complemento || 'Não informado'}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>Bairro:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.bairro}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>Cidade:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.cidade} -{' '}
-                  {selectedItem.orcamentoFinal.enderecoEntrega.estado}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>CEP:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.cep}
-                </Typography>
-                <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                  <strong>Tipo de Frete:</strong>{' '}
-                  {selectedItem.orcamentoFinal.enderecoEntrega.tipoFrete || 'N/A'}
-                </Typography>
+                {selectedItem.orcamentoFinal.enderecoEntrega && (
+                  <>
+                    {/* Verifica se endereçoEntrega não está vazio e exibe */}
+                    {selectedItem.orcamentoFinal.enderecoEntrega.endereco || selectedItem.orcamentoFinal.enderecoEntrega.numero ? (
+                      <>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>Endereço:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.endereco || 'Não informado'},
+                          {selectedItem.orcamentoFinal.enderecoEntrega.numero || 'Sem número'}
+                        </Typography>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>Complemento:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.complemento || 'Não informado'}
+                        </Typography>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>Bairro:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.bairro || 'Não informado'}
+                        </Typography>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>Cidade:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.cidade || 'Não informado'} -
+                          {selectedItem.orcamentoFinal.enderecoEntrega.estado || 'Estado não informado'}
+                        </Typography>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>CEP:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.cep || 'Não informado'}
+                        </Typography>
+                        <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                          <strong>Tipo de Frete:</strong> {selectedItem.orcamentoFinal.enderecoEntrega.tipoFrete || 'Não informado'}
+                        </Typography>
+                      </>
+                    ) : null}
+                  </>
+                )}
+
+                {selectedItem.orcamentoFinal.localRetirada && (
+                  // Verifica se localRetirada não está vazio e exibe
+                  <>
+                    <Typography variant="body1" sx={{ marginBottom: 1 }}>
+                      <strong>Retirada no Local:</strong> {selectedItem.orcamentoFinal.localRetirada || 'Não informado'}
+                    </Typography>
+                  </>
+                )}
+
+                {!selectedItem.orcamentoFinal.enderecoEntrega && !selectedItem.orcamentoFinal.localRetirada && (
+                  // Se nenhum dos campos tem valor
+                  <Typography variant="body1" sx={{ marginBottom: 1, color: 'red' }}>
+                    Nenhuma informação de entrega ou retirada disponível.
+                  </Typography>
+                )}
               </>
             ) : (
-              <Typography variant="body1" sx={{ marginBottom: 1 }}>
-                <strong>Retirada no Local:</strong>{' '}
-                {selectedItem.orcamentoFinal?.localRetirada || 'N/A'}
+              <Typography variant="body1" sx={{ marginBottom: 1, color: 'red' }}>
+                Dados do orçamento não disponíveis.
               </Typography>
             )}
 
@@ -291,11 +384,7 @@ const CrudPage = () => {
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert
-          onClose={handleSnackbarClose}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
