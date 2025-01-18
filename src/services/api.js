@@ -1,4 +1,9 @@
 export const consultarAPI = async (id) => {
+    // Verifica se o ID não foi fornecido
+    if (!id) {
+        return []; // Retorna um array vazio ou qualquer outro valor adequado
+    }
+
     const url = `https://endpoints-checkout.rzyewu.easypanel.host/orcamento?id=${id}`;
 
     try {
