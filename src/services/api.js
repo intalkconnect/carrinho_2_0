@@ -1,7 +1,6 @@
 export const consultarAPI = async (id) => {
-    // Verifica se o ID não foi fornecido ou está vazio
+    // Verifica se o id é inválido ou vazio
     if (!id || id.trim() === "") {
-        console.error('ID é obrigatório');
         return []; // Retorna um array vazio sem fazer a requisição
     }
 
@@ -16,8 +15,8 @@ export const consultarAPI = async (id) => {
         const data = await response.json();
         return data;
     } catch (error) {
-        console.error(error); // Exibe o erro no console, se houver
-        return [];
+        console.error("Erro ao chamar a API:", error); // Adicionando log de erro
+        return []; // Retorna um array vazio em caso de erro
     }
 };
 
