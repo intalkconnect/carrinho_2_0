@@ -2,6 +2,7 @@ import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Checkout from './components/Checkout';
 import CrudPage from './components/CrudPage';
+import { Analytics } from "@vercel/analytics/react";
 
 const router = createBrowserRouter(
   [
@@ -26,7 +27,12 @@ const router = createBrowserRouter(
 );
 
 const App = () => {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Analytics />
+    </>
+  );
 };
 
 export default App;
