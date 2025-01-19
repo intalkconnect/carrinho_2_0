@@ -5,7 +5,24 @@ import CrudPage from './components/CrudPage';
 
 const router = createBrowserRouter(
   [
-const router = createBrowserRouter(
+    {
+      path: "/",
+      element: <Checkout />,
+    },
+    {
+      path: "/crud",
+      element: <CrudPage />,
+    },
+    {
+      path: "/:id",
+      element: <Checkout />,
+    },
+  ],
+  {
+    future: {
+      v7_startTransition: true,
+    },
+  }
 );
 
 const App = () => {
