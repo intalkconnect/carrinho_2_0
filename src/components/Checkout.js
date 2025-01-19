@@ -86,14 +86,16 @@ const Checkout = () => {
                 sx={{
                     minHeight: '100vh',
                     display: 'flex',
+                    flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    bgcolor: '#f8d7da',
-                    color: '#721c24',
+                    bgcolor: '#f8f8f8',
+                    color: '#555',
                 }}
             >
-                <Typography variant="h5" sx={{ textAlign: 'center' }}>
-                    Este link expirou. Por favor, solicite um novo orçamento.
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#ff9800', marginBottom: 2 }} />
+                <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
+                    Este link expirou. Por favor, solicite um novo orçamento..
                 </Typography>
             </Box>
         );
@@ -105,14 +107,16 @@ const Checkout = () => {
                 sx={{
                     minHeight: '100vh',
                     display: 'flex',
+                    flexDirection: 'column',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    bgcolor: '#d4edda',
-                    color: '#155724',
+                    bgcolor: '#f8f8f8',
+                    color: '#555',
                 }}
             >
-                <Typography variant="h5" sx={{ textAlign: 'center' }}>
-                    Esta compra já foi finalizada. Obrigado!
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#ff9800', marginBottom: 2 }} />
+                <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
+                   Essa compra já foi finalizada.
                 </Typography>
             </Box>
         );
