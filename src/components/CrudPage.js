@@ -17,12 +17,14 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  Card,
+  CardContent
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SearchIcon from '@mui/icons-material/Search';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import { ExpandMore, ExpandLess } from '@mui/icons-material';
+
 
 
 const CrudPage = () => {
@@ -31,6 +33,10 @@ const CrudPage = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'dataCompra', direction: 'asc' });
+
+  // Novo estado para controlar o modal de confirmação
+  const [openConfirmModal, setOpenConfirmModal] = useState(false);
+  const [itemToProcess, setItemToProcess] = useState(null);
 
   useEffect(() => {
     const socket = io('wss://endpoints-checkout.rzyewu.easypanel.host/', {
@@ -68,7 +74,7 @@ const CrudPage = () => {
     socket.on('connect', () => {
       setSnackbar({
         open: true,
-        message: 'Conexão WebSocket estabelecida!',
+        message: 'Conexão estabelecida!',
         severity: 'success',
       });
     });
@@ -85,10 +91,20 @@ const CrudPage = () => {
       setItems((prevItems) => prevItems.filter((item) => item._id !== removedCheckout.checkoutId));
     });
 
+    // Ouvindo o evento 'processCompleted' do servidor
+    socket.on('processCompleted', (completedItemId) => {
+      setItems((prevItems) => prevItems.filter((item) => item._id !== completedItemId));
+      setSnackbar({
+        open: true,
+        message: 'Processo concluído com sucesso!',
+        severity: 'success',
+      });
+    });
+
     socket.on('disconnect', () => {
       setSnackbar({
         open: true,
-        message: 'Desconectado do servidor WebSocket. Tentando reconectar...',
+        message: 'Desconectado do servidor. Tentando reconectar...',
         severity: 'warning',
       });
     });
@@ -106,9 +122,16 @@ const CrudPage = () => {
     setSelectedItem(null);
   };
 
+  // Novo handleComplete para abrir o modal de confirmação
   const handleComplete = (item) => {
-    const payload = { _id: item._id, processo: true };
-    fetch('https://devops.dkdevs.com.br/webhook/finish-process', {
+    setItemToProcess(item);
+    setOpenConfirmModal(true); // Abre o modal de confirmação
+  };
+
+  // Função que será chamada quando o usuário confirmar o processo
+  const handleConfirmProcess = () => {
+    const payload = { _id: itemToProcess._id, process: true };
+    fetch('https://endpoints-checkout.rzyewu.easypanel.host/process', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -117,7 +140,7 @@ const CrudPage = () => {
     })
       .then((response) => {
         if (response.ok) {
-          setItems((prevItems) => prevItems.filter((i) => i._id !== item._id));
+          setItems((prevItems) => prevItems.filter((i) => i._id !== itemToProcess._id));
           setSnackbar({
             open: true,
             message: 'Processo concluído com sucesso!',
@@ -135,7 +158,14 @@ const CrudPage = () => {
           severity: 'error',
         });
       });
+    setOpenConfirmModal(false); // Fecha o modal após o processamento
   };
+
+  // Função para fechar o modal sem fazer nada
+  const handleCancelProcess = () => {
+    setOpenConfirmModal(false); // Fecha o modal sem processar nada
+  }
+
 
   const handleSnackbarClose = () => setSnackbar({ open: false, message: '', severity: 'info' });
 
@@ -169,6 +199,14 @@ const CrudPage = () => {
         Gerenciamento de Processos de Checkout
       </Typography>
 
+      {/* Card com o contador de itens */}
+      <Card sx={{ marginBottom: 3, maxWidth: 300, margin: '0 auto' }}>
+        <CardContent>
+          <Typography variant="h6" align="center">
+            {`Orçamentos na fila: ${items.length}`}
+          </Typography>
+        </CardContent>
+      </Card>
       <Box sx={{ marginBottom: 3, display: 'flex', justifyContent: 'flex-end' }}>
         <TextField
           label="Buscar"
@@ -196,20 +234,36 @@ const CrudPage = () => {
               </TableCell>
               <TableCell align="center" onClick={() => handleSort('dataCompra')} sx={{ cursor: 'pointer', color: '#fff' }}>
                 Data da Compra
+                {sortConfig.key === 'dataCompra' && (
+                  sortConfig.direction === 'asc' ? (
+                    <ExpandMore sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  ) : (
+                    <ExpandLess sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  )
+                )}
               </TableCell>
               <TableCell align="center" sx={{ color: '#fff' }}>
                 Checkout
               </TableCell>
               <TableCell align="center" onClick={() => handleSort('orcamentoFinal.dadosPessoais.nomeCompleto')} sx={{ cursor: 'pointer', color: '#fff' }}>
                 Nome do Cliente
+                {sortConfig.key === 'orcamentoFinal.dadosPessoais.nomeCompleto' && (
+                  sortConfig.direction === 'asc' ? (
+                    <ExpandMore sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  ) : (
+                    <ExpandLess sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  )
+                )}
               </TableCell>
               <TableCell align="center" onClick={() => handleSort('numero_orcamento')} sx={{ cursor: 'pointer', color: '#fff' }}>
                 Número do Orçamento
-                {sortConfig.key === 'numero_orcamento' && (sortConfig.direction === 'asc' ? (
-                  <ArrowDownwardIcon sx={{ marginLeft: 1, color: '#fff' }} />
-                ) : (
-                  <ArrowUpwardIcon sx={{ marginLeft: 1, color: '#fff' }} />
-                ))}
+                {sortConfig.key === 'numero_orcamento' && (
+                  sortConfig.direction === 'asc' ? (
+                    <ExpandMore sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  ) : (
+                    <ExpandLess sx={{ marginLeft: 1, color: '#fff', fontSize: 20 }} />
+                  )
+                )}
               </TableCell>
               <TableCell align="center" sx={{ color: '#fff' }}>
                 Total
@@ -376,6 +430,37 @@ const CrudPage = () => {
           </Box>
         </Modal>
       )}
+
+      {/* Modal de Confirmação */}
+      <Modal open={openConfirmModal} onClose={handleCancelProcess}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '90%',
+            maxWidth: 400,
+            maxHeight: '90%',
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 4,
+          }}
+        >
+          <Typography variant="h6" sx={{ marginBottom: 2 }}>
+            Você tem certeza que deseja processar este item?
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button onClick={handleCancelProcess} variant="outlined" color="error">
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmProcess} variant="contained" color="primary">
+              Confirmar
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
 
       {/* Snackbar */}
       <Snackbar
