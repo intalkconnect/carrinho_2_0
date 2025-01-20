@@ -196,7 +196,7 @@ const CrudPage = () => {
   return (
     <Box sx={{ padding: 4, backgroundColor: '#f4f6f8' }}>
       <Typography variant="h4" sx={{ marginBottom: 3, color: '#333' }}>
-        Gerenciamento de Processos de Checkout
+        Gerenciador de orçamentos
       </Typography>
 
       {/* Card com o contador de itens */}
