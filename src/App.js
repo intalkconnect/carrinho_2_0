@@ -10,7 +10,7 @@ const router = createBrowserRouter(
       element: <Checkout />,
     },
     {
-      path: "/crud",
+      path: "/gerenciador",
       element: <CrudPage />,
     },
     {
