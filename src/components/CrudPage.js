@@ -276,7 +276,7 @@ const CrudPage = () => {
           <TableBody>
             {filteredItems.map((item) => (
               <TableRow key={item._id} sx={{ '&:hover': { backgroundColor: '#f1f1f1' } }}>
-                <TableCell align="center">{item.status === 'confirmed' ? 'Efetuado' : item.status}</TableCell>
+                <TableCell align="center">{item.status === 'paid' ? 'Efetuado' : item.status}</TableCell>
                 <TableCell align="center">{new Date(item.dataCompra).toLocaleString()}</TableCell>
                 <TableCell align="center">{item.orcamentoFinal?.checkout || 'N/A'}</TableCell>
                 <TableCell align="center">{item.orcamentoFinal?.dadosPessoais?.nomeCompleto || 'N/A'}</TableCell>
