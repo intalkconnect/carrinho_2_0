@@ -50,7 +50,7 @@ const CrudPage = () => {
       try {
         const response = await fetch('https://endpoints-checkout.rzyewu.easypanel.host/itens');
         const data = await response.json();
-        const filteredItems = data.filter((item) => !item.processo);
+        const filteredItems = data.filter((item) => !item.process);
         setItems(filteredItems);
       } catch (error) {
         console.error('Error fetching data:', error);
