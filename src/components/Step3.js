@@ -241,7 +241,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     if (status && status.status === 'RECEIVED') {
                         clearInterval(paymentIntervalRef.current);
                         paymentIntervalRef.current = null;
-                        setPaymentStatus('CONFIRMED');
+                        setPaymentStatus('PAID');
                         finalizeCheckout();
                         
                         const countdown = setInterval(() => {
@@ -438,7 +438,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             const data = await response.json();
 
             if (response.ok && data.status === 'CONFIRMED') {
-                setPaymentStatus('CONFIRMED');
+                setPaymentStatus('PAID');
                 setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
                 setLoading(false);
                 finalizeCheckout();
@@ -469,7 +469,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
     return (
         <Box sx={{ p: 3 }}>
-            {paymentStatus === 'CONFIRMED' && (
+            {paymentStatus === 'PAID' && (
                 <Box
                     sx={{
                         position: 'fixed',
@@ -697,7 +697,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             </Box>
                         )}
 
-                        {!loading && qrcode && paymentStatus !== 'CONFIRMED' && (
+                        {!loading && qrcode && paymentStatus !== 'PAID' && (
                             <Box
                                 sx={{
                                     mt: 3,
