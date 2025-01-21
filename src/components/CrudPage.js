@@ -53,7 +53,7 @@ const CrudPage = () => {
         const filteredItems = data.filter((item) => !item.process);
         setItems(filteredItems);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        
       }
     };
 
