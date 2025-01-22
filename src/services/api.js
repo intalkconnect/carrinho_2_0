@@ -20,7 +20,6 @@ export const consultarAPI = async (id) => {
     }
 };
 
-
 export const consultarCEP = async (cep) => {
     const url = `https://endpoints-checkout.rzyewu.easypanel.host/frete?cep=${cep}`;
 
