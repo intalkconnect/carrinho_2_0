@@ -1,3 +1,5 @@
+import axios from "axios";
+
 export const consultarAPI = async (id) => {
     // Verifica se o id é inválido ou vazio
     if (!id || id.trim() === "") {
