@@ -167,6 +167,16 @@ const Checkout = () => {
             return;
         }
         const id = window.location.pathname.replace('/', '');
+
+        const orcPaciente = orcamentos[0]?.orc_paciente;
+        if (!orcPaciente) {
+        setSnackbar({
+            open: true, 
+            message: 'Erro ao processar o cliente. Verifique os dados e tente novamente.', 
+            severity: 'error'
+        });
+        return orcamentos;
+    }
   
         // Monta o payload
         const payload = {
@@ -194,7 +204,7 @@ const Checkout = () => {
             produtos: produtosValidos,
             frete: parseFloat(formData.frete),
             total: produtosValidos.reduce((sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido, 0) + parseFloat(formData.frete),
-            identity: orcamentos[0].orc_paciente.replace(/^B/, '') + '@wa.gw.msging.net' // Ajuste aqui
+            identity: orcPaciente.replace(/^B/, '') + '@wa.gw.msging.net'
         };
 
         // Envia o payload para a API
