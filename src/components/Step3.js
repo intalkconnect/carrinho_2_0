@@ -447,7 +447,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     setRedirectCountdown((prev) => {
                         if (prev <= 1) {
                             clearInterval(countdown);
-                            window.location.href = 'https://wa.me/5521990286724';
+                            window.location.href = 'https://wa.me/553192250059';
                         }
                         return prev - 1;
                     });
