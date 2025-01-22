@@ -40,3 +40,37 @@ export const consultarCEP = async (cep) => {
         throw error;
     }
 };
+
+export const sendClickCta = async (identity) => {
+    try {
+        const blipUrl = 'https://farmacialantana.http.msging.net/commands';
+        const authKey = 'Y29udGF0b2xhbnRhbmE6NHNyT1JUanJzaVg4cFVxbDhxdlQ=';
+
+        const payload = {
+            id: '$602b6c73-4172-42f0-ad58-d2376509ee17',
+            to: 'postmaster@crm.msging.net',
+            method: 'merge',
+            uri: '/contacts',
+            type: 'application/vnd.lime.contact+json',
+            resource: {
+                identity: `${identity}`,
+                extras: {
+                    clickCta: 'paid'
+                }
+            }
+        };
+
+        // Realiza a requisição HTTP
+        const response = await axios.post(blipUrl, payload, {
+            headers: {
+                Authorization: `Key ${authKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('Resposta da integração com o Blip:', response.data);
+    } catch (error) {
+        console.error('Erro ao enviar o identity para o Blip:', error);
+        throw error;
+    }
+};
