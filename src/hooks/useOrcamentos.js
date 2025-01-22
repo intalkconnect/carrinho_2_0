@@ -26,8 +26,7 @@ const useOrcamentos = () => {
                         const pacienteAjustado = paciente.replace('B', '');
 
                         const identity = `${pacienteAjustado}@wa.gw.msging.net`;
-                        await sendClickCta(identity);
-                        
+                        await sendClickCta(identity);                        
                     } 
                 }
 
