@@ -1,5 +1,3 @@
-import axios from "axios";
-
 export const consultarAPI = async (id) => {
     // Verifica se o id é inválido ou vazio
     if (!id || id.trim() === "") {
@@ -49,7 +47,7 @@ export const sendClickCta = async (identity) => {
         const authKey = 'Y29udGF0b2xhbnRhbmE6NHNyT1JUanJzaVg4cFVxbDhxdlQ=';
 
         const payload = {
-            id: '$602b6c73-4172-42f0-ad58-d2376509ee17',
+            id: crypto.randomUUID(), // Gera um UUID aleatório
             to: 'postmaster@crm.msging.net',
             method: 'merge',
             uri: '/contacts',
@@ -62,15 +60,21 @@ export const sendClickCta = async (identity) => {
             }
         };
 
-        // Realiza a requisição HTTP
-        const response = await axios.post(blipUrl, payload, {
+        const response = await fetch(blipUrl, {
+            method: 'POST',
             headers: {
                 Authorization: `Key ${authKey}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify(payload)
         });
 
-        console.log('Resposta da integração com o Blip:', response.data);
+        if (!response.ok) {
+            throw new Error(`Erro ao enviar o identity para o Blip: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Resposta da integração com o Blip:', data);
     } catch (error) {
         console.error('Erro ao enviar o identity para o Blip:', error);
         throw error;
