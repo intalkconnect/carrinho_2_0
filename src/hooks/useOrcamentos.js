@@ -9,10 +9,8 @@ const useOrcamentos = () => {
         const fetchOrcamentos = async () => {
             try {
                 const id = window.location.pathname.replace('/', '');
-                console.log(`ID extraído da URL: ${id}`);
 
                 const data = await consultarAPI(id);
-                console.log('Dados recebidos da API:', data);
 
                 setOrcamentos(data.orcamento || []);
                 setStatus(data.status || '');
@@ -39,7 +37,6 @@ const useOrcamentos = () => {
     }, []); // useEffect será executado apenas uma vez ao montar o componente
 
     const updateTotalValue = (updatedOrcamentos) => {
-        console.log('Atualizando valor total com os orçamentos:', updatedOrcamentos);
 
         const total = updatedOrcamentos.reduce((sum, item) => {
             const valorUnitario = parseFloat(item.orc_valor_liquido || 0);
@@ -47,7 +44,6 @@ const useOrcamentos = () => {
             return sum + valorUnitario * quantidade;
         }, 0);
 
-        console.log('Valor total calculado:', total);
         setTotalValue(total);
     };
 
