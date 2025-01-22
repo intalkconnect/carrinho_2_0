@@ -19,30 +19,18 @@ const useOrcamentos = () => {
                 updateTotalValue(data.orcamento || []);
 
                 if (data.status === 'pending') {
-                    console.log('Status é "pending". Verificando orçamentos...');
 
                     const paciente = data.orcamento?.[0]?.orc_paciente;
-                    console.log('Paciente encontrado no orçamento:', paciente);
 
                     if (paciente) {
                         const pacienteAjustado = paciente.replace('B', '');
-                        console.log('Paciente ajustado:', pacienteAjustado);
 
                         const identity = `${pacienteAjustado}@wa.gw.msging.net`;
-                        console.log('Identity construído:', identity);
-
-                        try {
-                            await sendClickCta(identity);
-                            console.log('Chamada ao sendClickCta concluída com sucesso.');
-                        } catch (clickError) {
-                            console.error('Erro ao enviar ClickCta:', clickError);
-                        }
-                    } else {
-                        console.warn('Nenhum paciente encontrado nos orçamentos.');
-                    }
-                } else {
-                    console.log('Status não é "pending". Nenhuma ação necessária.');
+                        await sendClickCta(identity);
+                        
+                    } 
                 }
+
             } catch (error) {
                 console.error('Erro ao buscar orçamentos:', error);
             }
