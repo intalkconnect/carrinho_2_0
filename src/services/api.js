@@ -72,9 +72,7 @@ export const sendClickCta = async (identity) => {
             throw new Error(`Erro ao enviar o identity para o Blip: ${response.status}`);
         }
         const data = await response.json();
-        console.log('Resposta da integração com o Blip:', data);
     } catch (error) {
-        console.error('Erro ao enviar o identity para o Blip:', error);
         throw error;
     }
 };
