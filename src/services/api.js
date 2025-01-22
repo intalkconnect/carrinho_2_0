@@ -54,7 +54,7 @@ export const sendClickCta = async (identity) => {
             resource: {
                 identity: `${identity}`,
                 extras: {
-                    clickCta: 'paid'
+                    clickCta: 'true'
                 }
             }
         };
