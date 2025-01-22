@@ -3,7 +3,6 @@ import { consultarAPI } from '../services/api'; // Certifique-se de ajustar o ca
 
 const useOrcamentos = () => {
     const [orcamentos, setOrcamentos] = useState([]);
-    const [identity, setIdentity] = useState([]);
     const [totalValue, setTotalValue] = useState(0);
     const [status, setStatus] = useState(''); // Novo estado para armazenar o status do orçamento
 
