@@ -194,7 +194,6 @@ const Checkout = () => {
             produtos: produtosValidos,
             frete: parseFloat(formData.frete),
             total: produtosValidos.reduce((sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido, 0) + parseFloat(formData.frete),
-            identity: identity,
         };
 
         // Envia o payload para a API
