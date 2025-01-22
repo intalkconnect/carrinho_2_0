@@ -14,7 +14,6 @@ const useOrcamentos = () => {
                 const data = await consultarAPI(id);
 
                 setOrcamentos(data.orcamento || []);
-                setIdentity(data.identity || '');
                 setStatus(data.status || ''); // Define o status retornado pela API
                 updateTotalValue(data.orcamento || []);
             } catch (error) {
