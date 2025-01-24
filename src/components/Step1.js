@@ -1,92 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, TextField, Button } from '@mui/material';
 
 const validateCpfCnpj = (value) => {
-    const cleaned = value.replace(/\D/g, ''); // Remove caracteres não numéricos
+    const cleaned = value.replace(/\D/g, '');
 
-    if (cleaned.length === 11) {
-        // Validação de CPF
-        if (/^(\d)\1+$/.test(cleaned)) return false;
+    const validateCPF = (cpf) => {
+        if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
 
-        let sum = 0;
-        let remainder;
-        for (let i = 1; i <= 9; i++) {
-            sum += parseInt(cleaned.substring(i - 1, i)) * (11 - i);
-        }
-        remainder = (sum * 10) % 11;
-        if (remainder === 10 || remainder === 11) remainder = 0;
-        if (remainder !== parseInt(cleaned.substring(9, 10))) return false;
-
-        sum = 0;
-        for (let i = 1; i <= 10; i++) {
-            sum += parseInt(cleaned.substring(i - 1, i)) * (12 - i);
-        }
-        remainder = (sum * 10) % 11;
-        if (remainder === 10 || remainder === 11) remainder = 0;
-        if (remainder !== parseInt(cleaned.substring(10, 11))) return false;
-
-        return true;
-    } else if (cleaned.length === 14) {
-        // Validação de CNPJ
-        if (/^(\d)\1+$/.test(cleaned)) return false;
-
-        const calc = (x) => {
-            const slice = cleaned.slice(0, x);
-            let factor = x - 7;
-            let sum = 0;
-
-            for (let i = x; i >= 1; i--) {
-                const n = slice[x - i];
-                sum += n * factor--;
-                if (factor < 2) factor = 9;
-            }
-
-            const result = 11 - (sum % 11);
-            return result > 9 ? 0 : result;
+        const calculateDigit = (slice, factor) => {
+            const sum = slice.split('').reduce((acc, digit, index) => 
+                acc + parseInt(digit) * (factor - index), 0);
+            const remainder = (sum * 10) % 11;
+            return remainder === 10 || remainder === 11 ? 0 : remainder;
         };
 
-        const digit1 = calc(12);
-        const digit2 = calc(13);
+        const firstDigit = calculateDigit(cpf.slice(0, 9), 10);
+        const secondDigit = calculateDigit(cpf.slice(0, 10), 11);
 
-        return digit1 === parseInt(cleaned[12]) && digit2 === parseInt(cleaned[13]);
-    }
+        return firstDigit === parseInt(cpf[9]) && secondDigit === parseInt(cpf[10]);
+    };
 
-    return false;
+    const validateCNPJ = (cnpj) => {
+        if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+
+        const calculateDigit = (slice, weights) => {
+            const sum = slice.split('').reduce((acc, digit, index) => 
+                acc + parseInt(digit) * weights[index], 0);
+            const remainder = sum % 11;
+            return remainder < 2 ? 0 : 11 - remainder;
+        };
+
+        const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+        const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+        const firstDigit = calculateDigit(cnpj.slice(0, 12), weights1);
+        const secondDigit = calculateDigit(cnpj.slice(0, 13), weights2);
+
+        return firstDigit === parseInt(cnpj[12]) && secondDigit === parseInt(cnpj[13]);
+    };
+
+    return cleaned.length === 11 ? validateCPF(cleaned) : 
+           cleaned.length === 14 ? validateCNPJ(cleaned) : 
+           false;
 };
 
 const maskCpfCnpj = (value) => {
-    const cleaned = value.replace(/\D/g, ''); // Remove caracteres não numéricos
-
-    if (cleaned.length === 11) {
-        return cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'); // Máscara de CPF
-    } else if (cleaned.length === 14) {
-        return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'); // Máscara de CNPJ
-    }
-
-    return value;
+    const cleaned = value.replace(/\D/g, '');
+    return cleaned.length === 11 
+        ? cleaned.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
+        : cleaned.length === 14 
+        ? cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+        : value;
 };
 
 const maskPhone = (value) => {
-    const cleaned = value.replace(/\D/g, ''); // Remove caracteres não numéricos
-    const match = cleaned.match(/^(\d{2})(\d{4,5})(\d{4})$/); // Aceita 4 ou 5 dígitos no meio
-    return match ? `(${match[1]}) ${match[2]}-${match[3]}` : value;
+    const cleaned = value.replace(/\D/g, '');
+    return cleaned.length === 10 
+        ? cleaned.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3')
+        : cleaned.length === 11 
+        ? cleaned.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')
+        : value;
 };
 
 const Step1 = ({ formData, handleInputChange, nextStep }) => {
     const [errors, setErrors] = useState({});
 
-    const validateFields = () => {
+    const validateFields = useMemo(() => {
         const newErrors = {};
-        if (!formData.nomeCompleto) newErrors.nomeCompleto = 'Nome completo é obrigatório';
+        if (!formData.nomeCompleto?.trim()) newErrors.nomeCompleto = 'Nome completo é obrigatório';
         if (!formData.cpf || !validateCpfCnpj(formData.cpf)) {
             newErrors.cpf = 'CPF ou CNPJ inválido ou obrigatório';
         }
         if (!formData.celular) newErrors.celular = 'Celular é obrigatório';
         return newErrors;
-    };
+    }, [formData]);
 
     const handleNext = () => {
-        const validationErrors = validateFields();
+        const validationErrors = validateFields;
         if (Object.keys(validationErrors).length === 0) {
             nextStep();
         } else {
@@ -102,7 +92,6 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                 autoComplete="off"
                 sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '600px' }}
             >
-                Por favor, complete seu cadastro.
                 <TextField
                     label="Nome completo"
                     name="nomeCompleto"
@@ -113,9 +102,8 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                     }}
                     fullWidth
                     size="small"
-                    InputLabelProps={{
-                        shrink: true,
-                    }}
+                    required
+                    InputLabelProps={{ shrink: true }}
                     error={!!errors.nomeCompleto}
                     helperText={errors.nomeCompleto}
                 />
@@ -123,22 +111,22 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                 <TextField
                     label="CPF ou CNPJ"
                     name="cpf"
-                    value={maskCpfCnpj(formData.cpf || '')} // Aplica a máscara ao exibir
+                    value={maskCpfCnpj(formData.cpf || '')}
                     onChange={(e) => {
-                        handleInputChange({ target: { name: 'cpf', value: e.target.value.replace(/\D/g, '') } });
+                        const cleaned = e.target.value.replace(/\D/g, '');
+                        handleInputChange({ target: { name: 'cpf', value: cleaned } });
                         setErrors((prev) => ({ ...prev, cpf: '' }));
                     }}
                     onBlur={() => {
                         const cleaned = formData.cpf?.replace(/\D/g, '') || '';
-                        if (cleaned.length === 11 || cleaned.length === 14) {
+                        if ([11, 14].includes(cleaned.length)) {
                             handleInputChange({ target: { name: 'cpf', value: cleaned } });
                         }
                     }}
                     fullWidth
                     size="small"
-                    InputLabelProps={{
-                        shrink: true,
-                    }}
+                    required
+                    InputLabelProps={{ shrink: true }}
                     error={!!errors.cpf}
                     helperText={errors.cpf}
                 />
@@ -150,9 +138,7 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                     onChange={handleInputChange}
                     fullWidth
                     size="small"
-                    InputLabelProps={{
-                        shrink: true,
-                    }}
+                    InputLabelProps={{ shrink: true }}
                 />
 
                 <TextField
@@ -160,20 +146,20 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                     name="celular"
                     value={maskPhone(formData.celular || '')}
                     onChange={(e) => {
-                        handleInputChange({ target: { name: 'celular', value: e.target.value.replace(/\D/g, '') } });
+                        const cleaned = e.target.value.replace(/\D/g, '');
+                        handleInputChange({ target: { name: 'celular', value: cleaned } });
                         setErrors((prev) => ({ ...prev, celular: '' }));
                     }}
                     onBlur={() => {
                         const cleaned = formData.celular?.replace(/\D/g, '') || '';
-                        if (cleaned.length === 11 || cleaned.length === 10) {
+                        if ([10, 11].includes(cleaned.length)) {
                             handleInputChange({ target: { name: 'celular', value: cleaned } });
                         }
                     }}
                     fullWidth
                     size="small"
-                    InputLabelProps={{
-                        shrink: true,
-                    }}
+                    required
+                    InputLabelProps={{ shrink: true }}
                     error={!!errors.celular}
                     helperText={errors.celular}
                 />
@@ -185,9 +171,8 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                     onChange={handleInputChange}
                     fullWidth
                     size="small"
-                    InputLabelProps={{
-                        shrink: true,
-                    }}
+                    type="email"
+                    InputLabelProps={{ shrink: true }}
                 />
 
                 <Button
