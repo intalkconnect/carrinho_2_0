@@ -200,14 +200,14 @@ const Summary = ({ orcamentos, updateTotalValue, frete = 0 }) => { // Aceita `fr
                             fontWeight="bold"
                             sx={{ color: '#00695c' }}
                         >
-                            R$ {ajustaValor(parseFloat(totalValue) + parseFloat(frete))}
+                            R$ {ajustaValor(parseFloat(totalValue))}
                         </Typography>
                     </Box>
 
                     {/* Exibição do Parcelamento */}
                     <Typography variant="body2" color="#666666">
                         {(parseFloat(totalValue) + parseFloat(frete)) > 0
-                            ? `ou 4x de R$ ${ajustaValor((parseFloat(totalValue) + parseFloat(frete)) / 4)} sem juros`
+                            ? `ou 4x de R$ ${ajustaValor(parseFloat(totalValue) / 4)} sem juros`
                             : 'Adicione itens ao carrinho para calcular o parcelamento'}
                     </Typography>
                 </Box>
