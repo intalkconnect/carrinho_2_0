@@ -376,96 +376,117 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     };
 
     const handleCardPayment = async () => {
-        if (!validateCardDetails()) return;
+    if (!validateCardDetails()) return;
 
-        setLoading(true);
+    setLoading(true);
 
-        try {
-            let customer = await fetchCustomer();
-            if (!customer) {
-                customer = await createCustomer();
-            }
-
-            if (!customer.id) {
-                throw new Error("Falha ao obter o ID do cliente.");
-            }
-
-            const customerId = customer.id;
-            const remoteIp = await fetch('https://api.ipify.org?format=json')
-                .then((res) => res.json())
-                .then((data) => data.ip);
-
-            const dueDate = new Date().toISOString().split('T')[0];
-            const payload = {
-                customer: customerId,
-                billingType: 'CREDIT_CARD',
-                dueDate,
-                creditCard: {
-                    holderName: cardDetails.nomeCartao,
-                    number: cardDetails.numeroCartao.replace(/\s/g, ''),
-                    expiryMonth: cardDetails.validade.split('/')[0],
-                    expiryYear: `20${cardDetails.validade.split('/')[1]}`,
-                    ccv: cardDetails.cvv,
-                },
-                creditCardHolderInfo: {
-                    name: cardHolderInfo.name,
-                    email: cardHolderInfo.email,
-                    cpfCnpj: formData.cpf,
-                    postalCode: cardHolderInfo.postalCode,
-                    addressNumber: cardHolderInfo.addressNumber,
-                    mobilePhone: cardHolderInfo.mobilePhone,
-                },
-                remoteIp,
-            };
-
-            if (installments === 1) {
-                payload.value = parseFloat(totalValue).toFixed(2);
-            } else {
-                payload.installmentCount = installments;
-                payload.totalValue = parseFloat(totalValue).toFixed(2);
-            }
-
-            const response = await fetch(`${baseURL}/payments`, {
-                method: 'POST',
-                headers: {
-                    accept: 'application/json',
-                    'content-type': 'application/json',
-                    access_token: ASaasToken,
-                },
-                body: JSON.stringify(payload),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.status === 'CONFIRMED') {
-                setPaymentStatus('PAID');
-                setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
-                setLoading(false);
-                finalizeCheckout();
-
-                const countdown = setInterval(() => {
-                    setRedirectCountdown((prev) => {
-                        if (prev <= 1) {
-                            clearInterval(countdown);
-                            window.location.href = 'https://wa.me/553192250059';
-                        }
-                        return prev - 1;
-                    });
-                }, 1000);
-            } else {
-                if (data.errors && Array.isArray(data.errors)) {
-                    const errorMessage = data.errors[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
-                    setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-                } else {
-                    setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
-                }
-            }
-        } catch (error) {
-            setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
-        } finally {
-            setLoading(false);
+    try {
+        let customer = await fetchCustomer();
+        if (!customer) {
+            customer = await createCustomer();
         }
-    };
+
+        if (!customer.id) {
+            throw new Error("Falha ao obter o ID do cliente.");
+        }
+
+        const customerId = customer.id;
+        const remoteIp = await fetch('https://api.ipify.org?format=json')
+            .then((res) => res.json())
+            .then((data) => data.ip);
+
+        const dueDate = new Date().toISOString().split('T')[0];
+
+        // Validação e tratamento dos dados do cartão
+        const [expiryMonth, expiryYear] = cardDetails.validade.split('/');
+        if (!expiryMonth || !expiryYear) {
+            setSnackbar({ open: true, message: 'Formato de validade inválido.', severity: 'error' });
+            return;
+        }
+
+        const payload = {
+            customer: customerId,
+            billingType: 'CREDIT_CARD',
+            dueDate,
+            creditCard: {
+                holderName: cardDetails.nomeCartao,
+                number: cardDetails.numeroCartao.replace(/\s/g, ''),
+                expiryMonth,
+                expiryYear: `20${expiryYear}`, // Garantindo que o ano seja no formato correto
+                ccv: cardDetails.cvv,
+            },
+            creditCardHolderInfo: {
+                name: cardHolderInfo.name, // Corrigido para o campo 'nome' que deve ser enviado
+                email: cardHolderInfo.email,
+                cpfCnpj: formData.cpf,
+                postalCode: cardHolderInfo.postalCode,
+                addressNumber: cardHolderInfo.addressNumber,
+                mobilePhone: cardHolderInfo.mobilePhone,
+            },
+            remoteIp,
+        };
+
+        // Validação e definição do valor total e parcelas
+        const totalValueParsed = parseFloat(totalValue);
+        if (isNaN(totalValueParsed)) {
+            setSnackbar({ open: true, message: 'Valor inválido.', severity: 'error' });
+            return;
+        }
+
+        if (installments === 1) {
+            payload.value = totalValueParsed.toFixed(2);
+        } else {
+            payload.installmentCount = installments;
+            payload.totalValue = totalValueParsed.toFixed(2);
+        }
+
+        // Enviar o pedido de pagamento
+        const response = await fetch(`${baseURL}/payments`, {
+            method: 'POST',
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                access_token: ASaasToken,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === 'CONFIRMED') {
+            setPaymentStatus('PAID');
+            setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
+            finalizeCheckout();
+
+            const countdown = setInterval(() => {
+                setRedirectCountdown((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(countdown);
+                        window.location.href = 'https://wa.me/553192250059';
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        } else {
+            if (data.errors && Array.isArray(data.errors)) {
+                const errorMessage = data.errors[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
+                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            } else {
+                setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
+            }
+        }
+    } catch (error) {
+        // Trata erros inesperados
+        if (error instanceof Error) {
+            setSnackbar({ open: true, message: `Erro ao processar pagamento: ${error.message}`, severity: 'error' });
+        } else {
+            setSnackbar({ open: true, message: 'Erro desconhecido ao processar pagamento.', severity: 'error' });
+        }
+    } finally {
+        setLoading(false);
+    }
+};
+
 
     return (
         <Box sx={{ p: 3 }}>
