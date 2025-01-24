@@ -142,72 +142,74 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
     };
 
     const handleCepBlur = async () => {
-        // Verifica se o CEP tem 8 dígitos
-        if (!formData.cep || formData.cep.length !== 8) {
-            setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
-            return;
-        }
+    // Verifica se o CEP tem 8 dígitos
+    if (!formData.cep || formData.cep.length !== 8) {
+        setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
+        return;
+    }
 
-        // Cancela requisições ou atualizações anteriores
-        let isCancelled = false;
+    // Cancela requisições ou atualizações anteriores
+    let isCancelled = false;
 
-        try {
-            // Define o estado de carregamento
-            setLoadingCep(true);
+    try {
+        // Define o estado de carregamento
+        setLoadingCep(true);
 
-            // Faz a busca do CEP
-            const data = await consultarCEP(formData.cep);
+        // Faz a busca do CEP
+        const data = await consultarCEP(formData.cep);
 
-            // Cancela a atualização se o componente ou efeito foi desmontado
-            if (isCancelled) return;
+        // Cancela a atualização se o componente ou efeito foi desmontado
+        if (isCancelled) return;
 
-            // Atualiza os campos com os dados do CEP
-            handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
-            handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
-            handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
-            handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
+        // Atualiza os campos com os dados do CEP
+        handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
+        handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
+        handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
+        handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
 
-            // Atualiza os campos desabilitados
-            setDisabledFields({
-                endereco: !!data.logradouro,
-                bairro: !!data.bairro,
-                cidade: !!data.localidade,
-                estado: !!data.estado,
+        // Atualiza os campos desabilitados
+        setDisabledFields({
+            endereco: !!data.logradouro,
+            bairro: !!data.bairro,
+            cidade: !!data.localidade,
+            estado: !!data.estado,
+        });
+
+        // Define o frete com base no valor de "local"
+        if (data.local) {
+            const localFrete = parseFloat(data.local); // Valor do frete do local
+            setFrete(localFrete); // Reseta o frete para o valor do "local"
+        } else if (data.pac || data.sedex) {
+            setMetodosFrete({
+                pac: data.pac ? parseFloat(data.pac) : null,
+                sedex: data.sedex ? parseFloat(data.sedex) : null,
             });
-
-            // Ajusta o frete se necessário
-            if (data.local) {
-                setFrete(parseFloat(data.local));
-            } else if (data.pac || data.sedex) {
-                setMetodosFrete({
-                    pac: data.pac ? parseFloat(data.pac) : null,
-                    sedex: data.sedex ? parseFloat(data.sedex) : null,
-                });
-                handleInputChange({ target: { name: 'metodosFrete', value: metodosFrete || '' } });
-            } else {
-                setFrete(0);
-            }
-        } catch (error) {
-            // Exibe mensagem de erro
-            setSnackbar({ open: true, message: 'Erro ao buscar o CEP. Verifique e tente novamente.', severity: 'warning' });
-
-            // Libera os campos para edição
-            setDisabledFields({
-                endereco: false,
-                bairro: false,
-                cidade: false,
-                estado: false,
-            });
-        } finally {
-            // Garante que o estado de carregamento seja desativado
-            setLoadingCep(false);
-
-            // Cancela atualizações futuras
-            return () => {
-                isCancelled = true;
-            };
+            handleInputChange({ target: { name: 'metodosFrete', value: metodosFrete || '' } });
+        } else {
+            setFrete(0); // Reseta para 0 se nenhum frete estiver disponível
         }
-    };
+    } catch (error) {
+        // Exibe mensagem de erro
+        setSnackbar({ open: true, message: 'Erro ao buscar o CEP. Verifique e tente novamente.', severity: 'warning' });
+
+        // Libera os campos para edição
+        setDisabledFields({
+            endereco: false,
+            bairro: false,
+            cidade: false,
+            estado: false,
+        });
+    } finally {
+        // Garante que o estado de carregamento seja desativado
+        setLoadingCep(false);
+
+        // Cancela atualizações futuras
+        return () => {
+            isCancelled = true;
+        };
+    }
+};
+
 
     const handleCepChange = (e) => {
         const { value } = e.target;
