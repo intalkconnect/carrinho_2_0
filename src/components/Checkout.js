@@ -309,6 +309,7 @@ const Checkout = () => {
             }}
         >
             <AppBar
+                id="header" // Adicionado ID para facilitar a captura
                 position="static"
                 elevation={0}
                 sx={{
