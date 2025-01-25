@@ -51,12 +51,12 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     const activePixId = useRef(null);
     const paymentIntervalRef = useRef(null);
 
-    const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
-    const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
+    // Environment-based configuration
+    const ASaasToken = process.env.REACT_APP_ASAAS_TOKEN || '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
+    const baseURL = process.env.REACT_APP_BASE_URL || 'https://endpoints-checkout.rzyewu.easypanel.host';
 
     useEffect(() => {
         return () => {
-            // Limpeza de intervalos ao desmontar o componente
             if (paymentIntervalRef.current) {
                 clearInterval(paymentIntervalRef.current);
                 paymentIntervalRef.current = null;
@@ -72,33 +72,42 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     };
 
     const fetchCustomer = async () => {
-        const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
-            method: 'GET',
-            headers: {
-                accept: 'application/json',
-                access_token: ASaasToken,
-            },
-        });
-        const data = await response.json();
-        return data.data?.[0] || null;
+        try {
+            const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
+                method: 'GET',
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            const data = await response.json();
+            return data.data?.[0] || null;
+        } catch (error) {
+            console.error("Erro ao buscar cliente:", error);
+            return null;
+        }
     };
 
     const createCustomer = async () => {
-        const payload = {
-            name: formData.nomeCompleto,
-            cpfCnpj: formData.cpf,
-        };
-        const response = await fetch(`${baseURL}/customers`, {
-            method: 'POST',
-            headers: {
-                accept: 'application/json',
-                'Content-Type': 'application/json',
-                access_token: ASaasToken,
-            },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        return data;
+        try {
+            const payload = {
+                name: formData.nomeCompleto,
+                cpfCnpj: formData.cpf,
+            };
+            const response = await fetch(`${baseURL}/customers`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify(payload),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Erro ao criar cliente:", error);
+            throw error;
+        }
     };
 
     const maskPhone = (value) => {
@@ -143,9 +152,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     access_token: ASaasToken,
                 },
             });
-            if (response.ok) {
-
-            } else {
+            if (!response.ok) {
                 console.error("Erro ao excluir cobrança Pix.");
             }
         } catch (error) {
@@ -161,8 +168,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 access_token: ASaasToken,
             },
         });
-        const data = await response.json();
-        return data;
+        return await response.json();
     };
 
     const checkPaymentStatus = async (paymentId) => {
@@ -183,8 +189,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 },
             });
 
-            const data = await response.json();
-            return data;
+            return await response.json();
         } catch (error) {
             console.error("Erro ao verificar o status do pagamento:", error);
             throw error;
@@ -248,12 +253,11 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             setRedirectCountdown((prev) => {
                                 if (prev <= 1) {
                                     clearInterval(countdown);
-                                    
                                     window.location.href = 'https://wa.me/5521990286724';
                                 }
                                 return prev - 1;
                             });
-                        }, 1000)
+                        }, 1000);
                         setLoading(false);
                     }
                 } catch (error) {
@@ -376,117 +380,111 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     };
 
     const handleCardPayment = async () => {
-    if (!validateCardDetails()) return;
+        if (!validateCardDetails()) return;
 
-    setLoading(true);
+        setLoading(true);
 
-    try {
-        let customer = await fetchCustomer();
-        if (!customer) {
-            customer = await createCustomer();
-        }
-
-        if (!customer.id) {
-            throw new Error("Falha ao obter o ID do cliente.");
-        }
-
-        const customerId = customer.id;
-        const remoteIp = await fetch('https://api.ipify.org?format=json')
-            .then((res) => res.json())
-            .then((data) => data.ip);
-
-        const dueDate = new Date().toISOString().split('T')[0];
-
-        // Validação e tratamento dos dados do cartão
-        const [expiryMonth, expiryYear] = cardDetails.validade.split('/');
-        if (!expiryMonth || !expiryYear) {
-            setSnackbar({ open: true, message: 'Formato de validade inválido.', severity: 'error' });
-            return;
-        }
-
-        const payload = {
-            customer: customerId,
-            billingType: 'CREDIT_CARD',
-            dueDate,
-            creditCard: {
-                holderName: cardDetails.nomeCartao,
-                number: cardDetails.numeroCartao.replace(/\s/g, ''),
-                expiryMonth,
-                expiryYear: `20${expiryYear}`, // Garantindo que o ano seja no formato correto
-                ccv: cardDetails.cvv,
-            },
-            creditCardHolderInfo: {
-                name: cardHolderInfo.name, // Corrigido para o campo 'nome' que deve ser enviado
-                email: cardHolderInfo.email,
-                cpfCnpj: formData.cpf,
-                postalCode: cardHolderInfo.postalCode,
-                addressNumber: cardHolderInfo.addressNumber,
-                mobilePhone: cardHolderInfo.mobilePhone,
-            },
-            remoteIp,
-        };
-
-        // Validação e definição do valor total e parcelas
-        const totalValueParsed = parseFloat(totalValue);
-        if (isNaN(totalValueParsed)) {
-            setSnackbar({ open: true, message: 'Valor inválido.', severity: 'error' });
-            return;
-        }
-
-        if (installments === 1) {
-            payload.value = totalValueParsed.toFixed(2);
-        } else {
-            payload.installmentCount = installments;
-            payload.totalValue = totalValueParsed.toFixed(2);
-        }
-
-        // Enviar o pedido de pagamento
-        const response = await fetch(`${baseURL}/payments`, {
-            method: 'POST',
-            headers: {
-                accept: 'application/json',
-                'content-type': 'application/json',
-                access_token: ASaasToken,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.status === 'CONFIRMED') {
-            setPaymentStatus('PAID');
-            setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
-            finalizeCheckout();
-
-            const countdown = setInterval(() => {
-                setRedirectCountdown((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(countdown);
-                        window.location.href = 'https://wa.me/553192250059';
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        } else {
-            if (data.errors && Array.isArray(data.errors)) {
-                const errorMessage = data.errors[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
-                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-            } else {
-                setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
+        try {
+            let customer = await fetchCustomer();
+            if (!customer) {
+                customer = await createCustomer();
             }
-        }
-    } catch (error) {
-        // Trata erros inesperados
-        if (error instanceof Error) {
-            setSnackbar({ open: true, message: `Erro ao processar pagamento: ${error.message}`, severity: 'error' });
-        } else {
-            setSnackbar({ open: true, message: 'Erro desconhecido ao processar pagamento.', severity: 'error' });
-        }
-    } finally {
-        setLoading(false);
-    }
-};
+if (!customer.id) {
+                throw new Error("Falha ao obter o ID do cliente.");
+            }
 
+            const customerId = customer.id;
+            const remoteIp = await fetch('https://api.ipify.org?format=json')
+                .then((res) => res.json())
+                .then((data) => data.ip);
+
+            const dueDate = new Date().toISOString().split('T')[0];
+
+            const [expiryMonth, expiryYear] = cardDetails.validade.split('/');
+            if (!expiryMonth || !expiryYear) {
+                setSnackbar({ open: true, message: 'Formato de validade inválido.', severity: 'error' });
+                return;
+            }
+
+            const payload = {
+                customer: customerId,
+                billingType: 'CREDIT_CARD',
+                dueDate,
+                creditCard: {
+                    holderName: cardDetails.nomeCartao,
+                    number: cardDetails.numeroCartao.replace(/\s/g, ''),
+                    expiryMonth,
+                    expiryYear: `20${expiryYear}`,
+                    ccv: cardDetails.cvv,
+                },
+                creditCardHolderInfo: {
+                    name: cardHolderInfo.name,
+                    email: cardHolderInfo.email,
+                    cpfCnpj: formData.cpf,
+                    postalCode: cardHolderInfo.postalCode,
+                    addressNumber: cardHolderInfo.addressNumber,
+                    mobilePhone: cardHolderInfo.mobilePhone,
+                },
+                remoteIp,
+            };
+
+            const totalValueParsed = parseFloat(totalValue);
+            if (isNaN(totalValueParsed)) {
+                setSnackbar({ open: true, message: 'Valor inválido.', severity: 'error' });
+                return;
+            }
+
+            if (installments === 1) {
+                payload.value = totalValueParsed.toFixed(2);
+            } else {
+                payload.installmentCount = installments;
+                payload.totalValue = totalValueParsed.toFixed(2);
+            }
+
+            const response = await fetch(`${baseURL}/payments`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'CONFIRMED') {
+                setPaymentStatus('PAID');
+                setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
+                finalizeCheckout();
+
+                const countdown = setInterval(() => {
+                    setRedirectCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(countdown);
+                            window.location.href = 'https://wa.me/553192250059';
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            } else {
+                if (data.errors && Array.isArray(data.errors)) {
+                    const errorMessage = data.errors[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
+                    setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+                } else {
+                    setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
+                }
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                setSnackbar({ open: true, message: `Erro ao processar pagamento: ${error.message}`, severity: 'error' });
+            } else {
+                setSnackbar({ open: true, message: 'Erro desconhecido ao processar pagamento.', severity: 'error' });
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <Box sx={{ p: 3 }}>
@@ -517,7 +515,6 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 </Box>
             )}
 
-            Escolha a forma de pagamento:
             <Box
                 component="form"
                 noValidate
@@ -539,6 +536,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     }
                 }}
             >
+                <Typography variant="h6">Escolha a forma de pagamento:</Typography>
                 <FormControl component="fieldset" sx={{ mt: 2 }}>
                     <RadioGroup
                         name="formaPagamento"
@@ -573,9 +571,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     </RadioGroup>
                 </FormControl>
 
+                {/* Rest of the render method with credit card and PIX forms */}
                 {formaPagamento === 'cartaoCredito' && (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400, mx: 'auto' }}>
-                        <TextField
+<TextField
                             label="Nome no Cartão"
                             name="nomeCartao"
                             value={cardDetails.nomeCartao}
@@ -686,7 +685,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
                 {formaPagamento === 'pix' && (
                     <>
-                        {loading && !qrcode && (
+ {loading && !qrcode && (
                             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                                 <CircularProgress />
                             </Box>
