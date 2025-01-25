@@ -65,15 +65,12 @@ const Checkout: React.FC = () => {
     const [isStep1Completed, setIsStep1Completed] = useState(false);
     const [isStep2Completed, setIsStep2Completed] = useState(false);
 
-const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'warning' | 'info';
-}>({
+const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'info'
+    severity: 'info' // Just use a string value
 });
+
 
 
     const handleSnackbarClose = useCallback(() => {
