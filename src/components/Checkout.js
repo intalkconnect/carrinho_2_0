@@ -68,7 +68,7 @@ const Checkout: React.FC = () => {
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
-        severity: 'info' as 'success' | 'error' | 'warning' | 'info',
+        severity: 'info' as 'success' | 'error' | 'warning' | 'info'
     });
 
     const handleSnackbarClose = useCallback(() => {
