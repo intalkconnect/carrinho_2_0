@@ -65,11 +65,16 @@ const Checkout: React.FC = () => {
     const [isStep1Completed, setIsStep1Completed] = useState(false);
     const [isStep2Completed, setIsStep2Completed] = useState(false);
 
-    const [snackbar, setSnackbar] = useState({
-        open: false,
-        message: '',
-        severity: 'info' as 'success' | 'error' | 'warning' | 'info'
-    });
+const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+}>({
+    open: false,
+    message: '',
+    severity: 'info'
+});
+
 
     const handleSnackbarClose = useCallback(() => {
         setSnackbar(prev => ({ ...prev, open: false }));
