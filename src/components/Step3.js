@@ -422,43 +422,50 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 };
             },
             validade: (val) => {
-                // Remove tudo que não é número
+                // Remove caracteres não numéricos
                 const cleaned = val.replace(/\D/g, '');
 
-                // Formata a data conforme o usuário digita
-                let formatted = cleaned;
-                if (cleaned.length >= 2) {
-                    const month = parseInt(cleaned.substring(0, 2));
-                    // Verifica se o mês é válido (1-12)
-                    if (month < 1 || month > 12) {
-                        return {
-                            value: formatted.substring(0, 2),
-                            error: 'Mês inválido'
-                        };
-                    }
-                    // Adiciona a barra após o mês
-                    formatted = month.toString().padStart(2, '0') + (cleaned.length > 2 ? '/' + cleaned.substring(2) : '');
-                }
+                // Limita a 4 dígitos (MMAA)
+                const limited = cleaned.slice(0, 4);
 
-                // Validação completa quando temos mês e ano
-                if (cleaned.length >= 4) {
-                    const month = parseInt(cleaned.substring(0, 2));
-                    const year = parseInt(cleaned.substring(2));
-                    const currentDate = new Date();
-                    const currentYear = currentDate.getFullYear() % 100;
-                    const currentMonth = currentDate.getMonth() + 1;
+                let formatted = limited;
+                let error = null;
 
-                    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-                        return {
-                            value: formatted,
-                            error: 'Cartão vencido'
-                        };
+                // Se temos pelo menos 1 dígito
+                if (limited.length >= 1) {
+                    const month = parseInt(limited.substring(0, 2), 10);
+
+                    // Se temos 2 ou mais dígitos, valida o mês
+                    if (limited.length >= 2) {
+                        if (month < 1 || month > 12) {
+                            error = 'Mês inválido';
+                        }
+                        formatted = month.toString().padStart(2, '0');
+
+                        // Adiciona a barra e os dígitos do ano se existirem
+                        if (limited.length > 2) {
+                            formatted += '/' + limited.substring(2);
+
+                            // Validação completa quando temos mês e ano
+                            if (limited.length === 4) {
+                                const year = parseInt(limited.substring(2), 10);
+                                const currentDate = new Date();
+                                const currentYear = currentDate.getFullYear() % 100;
+                                const currentMonth = currentDate.getMonth() + 1;
+
+                                if (year < currentYear || (year === currentYear && month < currentMonth)) {
+                                    error = 'Cartão vencido';
+                                }
+                            }
+                        }
+                    } else {
+                        formatted = limited;
                     }
                 }
 
                 return {
                     value: formatted,
-                    error: null
+                    error
                 };
             },
             cvv: (val) => ({
