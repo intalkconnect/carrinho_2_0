@@ -70,8 +70,8 @@ const Step3 = ({
         });
 
         // Configurações de ambiente com validações adicionais de segurança
-        const ASaasToken = process.env.REACT_APP_ASAAS_TOKEN || '';
-        const baseURL = process.env.REACT_APP_BASE_URL || '';
+        const ASaasToken = process.env.REACT_APP_ASAAS_TOKEN || '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
+        const baseURL = process.env.REACT_APP_BASE_URL || 'https://endpoints-checkout.rzyewu.easypanel.host';
 
         if (!ASaasToken || !baseURL) {
             console.error('Configurações de ambiente incompletas');
