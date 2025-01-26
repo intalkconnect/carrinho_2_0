@@ -13,15 +13,13 @@ import {
     TextField,
     MenuItem,
 } from '@mui/material';
+import IconButton from '@mui/material/IconButton';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) => {
     const [formaPagamento, setFormaPagamento] = useState('');
     const formaPagamentoRef = useRef(formaPagamento);
-
-    useEffect(() => {
-        formaPagamentoRef.current = formaPagamento;
-    }, [formaPagamento]);
-
     const [loading, setLoading] = useState(false);
     const [qrcode, setQrcode] = useState('');
     const [pixCopyCode, setPixCopyCode] = useState('');
@@ -37,7 +35,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         validade: '',
         cvv: '',
     });
-
+    const [showCVV, setShowCVV] = useState(false);
     const [installments, setInstallments] = useState(1);
     const [cardHolderInfo, setCardHolderInfo] = useState({
         name: formData.nomeCompleto || '',
@@ -46,7 +44,6 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         addressNumber: formData.numero || '',
         mobilePhone: '',
     });
-
     const [errors, setErrors] = useState({});
     const activePixId = useRef(null);
     const paymentIntervalRef = useRef(null);
@@ -55,50 +52,60 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
 
     useEffect(() => {
+        formaPagamentoRef.current = formaPagamento;
         return () => {
-            // Limpeza de intervalos ao desmontar o componente
             if (paymentIntervalRef.current) {
                 clearInterval(paymentIntervalRef.current);
-                paymentIntervalRef.current = null;
             }
         };
-    }, []);
+    }, [formaPagamento]);
 
-    const handleSnackbarClose = () => setSnackbar((prev) => ({ ...prev, open: false }));
+    const handleSnackbarClose = () => setSnackbar(prev => ({ ...prev, open: false }));
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(pixCopyCode);
-        setSnackbar({ open: true, message: 'Código Pix copiado!', severity: 'success' });
+    const copyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(pixCopyCode);
+            setSnackbar({ open: true, message: 'Código Pix copiado!', severity: 'success' });
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Erro ao copiar código', severity: 'error' });
+        }
     };
 
     const fetchCustomer = async () => {
-        const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
-            method: 'GET',
-            headers: {
-                accept: 'application/json',
-                access_token: ASaasToken,
-            },
-        });
-        const data = await response.json();
-        return data.data?.[0] || null;
+        try {
+            const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            const data = await response.json();
+            return data.data?.[0] || null;
+        } catch (error) {
+            console.error('Erro ao buscar cliente:', error);
+            throw new Error('Falha ao buscar cliente');
+        }
     };
 
     const createCustomer = async () => {
-        const payload = {
-            name: formData.nomeCompleto,
-            cpfCnpj: formData.cpf,
-        };
-        const response = await fetch(`${baseURL}/customers`, {
-            method: 'POST',
-            headers: {
-                accept: 'application/json',
-                'Content-Type': 'application/json',
-                access_token: ASaasToken,
-            },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        return data;
+        try {
+            const response = await fetch(`${baseURL}/customers`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify({
+                    name: formData.nomeCompleto,
+                    cpfCnpj: formData.cpf,
+                }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Erro ao criar cliente:', error);
+            throw new Error('Falha ao criar cliente');
+        }
     };
 
     const maskPhone = (value) => {
@@ -107,88 +114,152 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         return match ? `(${match[1]}) ${match[2]}-${match[3]}` : value;
     };
 
+    const maskCardNumber = (number) => {
+        const visibleDigits = 4;
+        const maskedPortion = number.slice(0, -visibleDigits).replace(/\d/g, '•');
+        return maskedPortion + number.slice(-visibleDigits);
+    };
+
+    const clearSensitiveData = () => {
+        setCardDetails({
+            nomeCartao: '',
+            numeroCartao: '',
+            validade: '',
+            cvv: '',
+        });
+        // Limpar dados do form após uso
+        if (document.getElementById('cardForm')) {
+            document.getElementById('cardForm').reset();
+        }
+    };
+
+    const sanitizeCardData = (cardData) => {
+        return {
+            ...cardData,
+            numeroCartao: cardData.numeroCartao.replace(/\s/g, ''),
+            nomeCartao: cardData.nomeCartao.trim().toUpperCase(),
+            cvv: cardData.cvv.trim(),
+            validade: cardData.validade.trim()
+        };
+    };
+
+    // Função melhorada para validação PCI DSS
+    const validateCardPCI = (cardNumber) => {
+        // Implementar algoritmo de Luhn
+        let sum = 0;
+        let isEven = false;
+
+        // Loop de trás para frente
+        for (let i = cardNumber.length - 1; i >= 0; i--) {
+            let digit = parseInt(cardNumber.charAt(i), 10);
+
+            if (isEven) {
+                digit *= 2;
+                if (digit > 9) {
+                    digit -= 9;
+                }
+            }
+
+            sum += digit;
+            isEven = !isEven;
+        }
+
+        return sum % 10 === 0;
+    };
+
     const createPixCharge = async (customerId) => {
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 1);
         dueDate.setHours(dueDate.getHours() - 3);
-        const formattedDueDate = dueDate.toISOString().split('T')[0];
 
-        const payload = {
-            billingType: 'PIX',
-            customer: customerId,
-            value: parseFloat(totalValue).toFixed(2),
-            dueDate: formattedDueDate,
-        };
-
-        const response = await fetch(`${baseURL}/payments`, {
-            method: 'POST',
-            headers: {
-                accept: 'application/json',
-                'Content-Type': 'application/json',
-                access_token: ASaasToken,
-            },
-            body: JSON.stringify(payload),
-        });
-        const data = await response.json();
-        activePixId.current = data.id;
-        return data;
+        try {
+            const response = await fetch(`${baseURL}/payments`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify({
+                    billingType: 'PIX',
+                    customer: customerId,
+                    value: parseFloat(totalValue).toFixed(2),
+                    dueDate: dueDate.toISOString().split('T')[0],
+                }),
+            });
+            const data = await response.json();
+            activePixId.current = data.id;
+            return data;
+        } catch (error) {
+            console.error('Erro ao criar cobrança PIX:', error);
+            throw new Error('Falha ao criar cobrança PIX');
+        }
     };
 
     const deletePixCharge = async (pixId) => {
         try {
-            const response = await fetch(`${baseURL}/payments/${pixId}`, {
+            await fetch(`${baseURL}/payments/${pixId}`, {
                 method: 'DELETE',
                 headers: {
                     accept: 'application/json',
                     access_token: ASaasToken,
                 },
             });
-            if (response.ok) {
-
-            } else {
-                console.error("Erro ao excluir cobrança Pix.");
-            }
         } catch (error) {
             console.error("Erro ao excluir cobrança Pix:", error);
         }
     };
 
     const fetchPixQrCode = async (paymentId) => {
-        const response = await fetch(`${baseURL}/payments/byPixQrCode?pixQrCode=${paymentId}`, {
-            method: 'GET',
-            headers: {
-                accept: 'application/json',
-                access_token: ASaasToken,
-            },
-        });
-        const data = await response.json();
-        return data;
-    };
-
-    const checkPaymentStatus = async (paymentId) => {
         try {
-            if (formaPagamentoRef.current !== 'pix') {
-                if (activePixId.current) {
-                    await deletePixCharge(activePixId.current);
-                    activePixId.current = null;
-                }
-                return;
-            }
-
-            const response = await fetch(`${baseURL}/payments/byStatus?status=${paymentId}`, {
-                method: 'GET',
+            const response = await fetch(`${baseURL}/payments/byPixQrCode?pixQrCode=${paymentId}`, {
                 headers: {
                     accept: 'application/json',
                     access_token: ASaasToken,
                 },
             });
-
-            const data = await response.json();
-            return data;
+            return await response.json();
         } catch (error) {
-            console.error("Erro ao verificar o status do pagamento:", error);
+            console.error('Erro ao buscar QR Code:', error);
+            throw new Error('Falha ao buscar QR Code');
+        }
+    };
+
+    const checkPaymentStatus = async (paymentId) => {
+        if (formaPagamentoRef.current !== 'pix') {
+            if (activePixId.current) {
+                await deletePixCharge(activePixId.current);
+                activePixId.current = null;
+            }
+            return;
+        }
+
+        try {
+            const response = await fetch(`${baseURL}/payments/byStatus?status=${paymentId}`, {
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Erro ao verificar status do pagamento:", error);
             throw error;
         }
+    };
+
+    const handleRedirect = () => {
+        const countdown = setInterval(() => {
+            setRedirectCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(countdown);
+                    window.location.href = formaPagamento === 'pix'
+                        ? 'https://wa.me/5521990286724'
+                        : 'https://wa.me/553192250059';
+                }
+                return prev - 1;
+            });
+        }, 1000);
     };
 
     const handlePixPayment = async () => {
@@ -217,13 +288,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
                 if (currentVerificationCount > 4) {
                     clearInterval(paymentIntervalRef.current);
-                    paymentIntervalRef.current = null;
-
                     if (activePixId.current) {
                         await deletePixCharge(activePixId.current);
                         activePixId.current = null;
                     }
-
                     setQrcode('');
                     setPixCopyCode('');
                     setIsQrCodeUpdated(false);
@@ -238,31 +306,20 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
                 try {
                     const status = await checkPaymentStatus(charge.id);
-                    if (status && status.status === 'RECEIVED') {
+                    if (status?.status === 'RECEIVED') {
                         clearInterval(paymentIntervalRef.current);
-                        paymentIntervalRef.current = null;
                         setPaymentStatus('PAID');
                         finalizeCheckout();
-                        
-                        const countdown = setInterval(() => {
-                            setRedirectCountdown((prev) => {
-                                if (prev <= 1) {
-                                    clearInterval(countdown);
-                                    
-                                    window.location.href = 'https://wa.me/5521990286724';
-                                }
-                                return prev - 1;
-                            });
-                        }, 1000)
+                        handleRedirect();
                         setLoading(false);
                     }
                 } catch (error) {
-                    console.error("Erro ao verificar o status do pagamento no intervalo:", error);
+                    console.error("Erro na verificação:", error);
                 }
             }, 30000);
         } catch (error) {
-            console.error("Erro no processo de pagamento PIX:", error);
-            setSnackbar({ open: true, message: 'Erro ao processar pagamento PIX.', severity: 'error' });
+            console.error("Erro no processo PIX:", error);
+            setSnackbar({ open: true, message: 'Erro ao processar PIX.', severity: 'error' });
         } finally {
             setLoading(false);
             setDisableOptions(false);
@@ -271,21 +328,17 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
     const handleFormChange = (event) => {
         const { value } = event.target;
-
         setFormaPagamento(value);
         handleInputChange({ target: { name: 'formaPagamento', value } });
 
         if (formaPagamento === 'pix' && value === 'cartaoCredito') {
             if (paymentIntervalRef.current) {
                 clearInterval(paymentIntervalRef.current);
-                paymentIntervalRef.current = null;
             }
-
             if (activePixId.current) {
                 deletePixCharge(activePixId.current);
                 activePixId.current = null;
             }
-
             setQrcode('');
             setPixCopyCode('');
             setIsQrCodeUpdated(false);
@@ -306,187 +359,200 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     const handleCardDetailChange = (e) => {
         const { name, value } = e.target;
 
-        if (name === 'nomeCartao') {
-            setCardDetails((prev) => ({
-                ...prev,
-                [name]: value.replace(/[^a-zA-Z\s]/g, '').toUpperCase(),
-            }));
-        } else if (name === 'numeroCartao') {
-            const numericValue = value.replace(/\D/g, '');
-            if (numericValue.length <= 16) {
-                setCardDetails((prev) => ({
-                    ...prev,
-                    [name]: numericValue.replace(/(.{4})/g, '$1 ').trim(),
-                }));
-            }
-        } else if (name === 'validade') {
-            setCardDetails((prev) => ({
-                ...prev,
-                [name]: value.replace(/\D/g, '').replace(/^(\d{2})(\d{0,2})$/, '$1/$2').substring(0, 5),
-            }));
-        } else if (name === 'cvv') {
-            setCardDetails((prev) => ({
-                ...prev,
-                [name]: value.replace(/\D/g, '').substring(0, 3),
-            }));
-        } else {
-            setCardDetails((prev) => ({ ...prev, [name]: value }));
+        const handlers = {
+            nomeCartao: (val) => ({
+                value: val.replace(/[^a-zA-Z\s]/g, '').toUpperCase(),
+                error: val.length < 3 ? 'Nome inválido' : null
+            }),
+            numeroCartao: (val) => {
+                const numericValue = val.replace(/\D/g, '');
+                const isValid = numericValue.length <= 16 && validateCardPCI(numericValue);
+                return {
+                    value: numericValue.length <= 16 ? numericValue.replace(/(.{4})/g, '$1 ').trim() : cardDetails.numeroCartao,
+                    error: !isValid ? 'Número de cartão inválido' : null
+                };
+            },
+            validade: (val) => {
+                const cleaned = val.replace(/\D/g, '');
+                const match = cleaned.match(/^(\d{2})(\d{2})?$/);
+                let formatted = '';
+                let error = null;
+
+                if (match) {
+                    const month = parseInt(match[1], 10);
+                    if (month < 1 || month > 12) {
+                        error = 'Mês inválido';
+                    } else if (match[2]) {
+                        const year = parseInt(match[2], 10);
+                        const currentYear = new Date().getFullYear() % 100;
+                        if (year < currentYear) {
+                            error = 'Cartão vencido';
+                        }
+                        formatted = `${match[1]}/${match[2]}`;
+                    } else {
+                        formatted = match[1];
+                    }
+                }
+
+                return {
+                    value: formatted.substring(0, 5),
+                    error
+                };
+            },
+            cvv: (val) => ({
+                value: val.replace(/\D/g, '').substring(0, 3),
+                error: val.length !== 3 ? 'CVV deve ter 3 dígitos' : null
+            })
+        };
+
+        if (handlers[name]) {
+            const { value: newValue, error } = handlers[name](value);
+            setCardDetails(prev => ({ ...prev, [name]: newValue }));
+            setErrors(prev => ({ ...prev, [name]: error }));
         }
     };
 
     const handleCardHolderInfoChange = (e) => {
         const { name, value } = e.target;
+        const handlers = {
+            postalCode: (val) => val.replace(/\D/g, ''),
+            addressNumber: (val) => val.replace(/\D/g, ''),
+            mobilePhone: maskPhone,
+        };
 
-        if (name === 'postalCode') {
-            setCardHolderInfo((prev) => ({
-                ...prev,
-                [name]: value.replace(/\D/g, ''),
-            }));
-        } else if (name === 'addressNumber') {
-            setCardHolderInfo((prev) => ({
-                ...prev,
-                [name]: value.replace(/\D/g, ''),
-            }));
-        } else if (name === 'mobilePhone') {
-            setCardHolderInfo((prev) => ({
-                ...prev,
-                [name]: maskPhone(value),
-            }));
-        } else {
-            setCardHolderInfo((prev) => ({ ...prev, [name]: value }));
-        }
+        setCardHolderInfo(prev => ({
+            ...prev,
+            [name]: handlers[name] ? handlers[name](value) : value,
+        }));
     };
 
     const validateCardDetails = () => {
+        const validations = {
+            nomeCartao: (v) => !!v || 'O nome no cartão é obrigatório.',
+            numeroCartao: (v) => v.replace(/\s/g, '').length === 16 || 'O número do cartão deve ter 16 dígitos.',
+            validade: (v) => /^\d{2}\/\d{2}$/.test(v) || 'A validade deve estar no formato MM/AA.',
+            cvv: (v) => v.length === 3 || 'O CVV deve ter 3 dígitos.',
+            email: (v) => !!v || 'O email é obrigatório.',
+            postalCode: (v) => v.length === 8 || 'O CEP deve conter 8 dígitos.',
+            addressNumber: (v) => !!v || 'O número do endereço é obrigatório.',
+            mobilePhone: (v) => /^(\(\d{2}\) \d{4,5}-\d{4})$/.test(v) || 'O telefone deve estar no formato (XX) XXXXX-XXXX.',
+        };
+
         const newErrors = {};
-        if (!cardDetails.nomeCartao) newErrors.nomeCartao = 'O nome no cartão é obrigatório.';
-        if (!cardDetails.numeroCartao || cardDetails.numeroCartao.replace(/\s/g, '').length !== 16)
-            newErrors.numeroCartao = 'O número do cartão deve ter 16 dígitos.';
-        if (!cardDetails.validade || !/^\d{2}\/\d{2}$/.test(cardDetails.validade))
-            newErrors.validade = 'A validade deve estar no formato MM/AA.';
-        if (!cardDetails.cvv || cardDetails.cvv.length !== 3) newErrors.cvv = 'O CVV deve ter 3 dígitos.';
-        if (!cardHolderInfo.email) newErrors.email = 'O email é obrigatório.';
-        if (!cardHolderInfo.postalCode || cardHolderInfo.postalCode.length !== 8)
-            newErrors.postalCode = 'O CEP deve conter 8 dígitos.';
-        if (!cardHolderInfo.addressNumber) newErrors.addressNumber = 'O número do endereço é obrigatório.';
-        if (!cardHolderInfo.mobilePhone || !/^(\(\d{2}\) \d{4,5}-\d{4})$/.test(cardHolderInfo.mobilePhone))
-            newErrors.mobilePhone = 'O telefone deve estar no formato (XX) XXXXX-XXXX.';
+        Object.entries(validations).forEach(([field, validator]) => {
+            const value = field in cardDetails ? cardDetails[field] : cardHolderInfo[field];
+            const validationResult = validator(value);
+            if (validationResult !== true) {
+                newErrors[field] = validationResult;
+            }
+        });
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
+    // Modificar handleCardPayment para incluir segurança adicional
     const handleCardPayment = async () => {
-    if (!validateCardDetails()) return;
+        if (!validateCardDetails()) return;
 
-    setLoading(true);
+        setLoading(true);
+        try {
 
-    try {
-        let customer = await fetchCustomer();
-        if (!customer) {
-            customer = await createCustomer();
-        }
+            // Converter totalValue para número e garantir 2 casas decimais
+            const totalValueParsed = parseFloat(totalValue);
 
-        if (!customer.id) {
-            throw new Error("Falha ao obter o ID do cliente.");
-        }
-
-        const customerId = customer.id;
-        const remoteIp = await fetch('https://api.ipify.org?format=json')
-            .then((res) => res.json())
-            .then((data) => data.ip);
-
-        const dueDate = new Date().toISOString().split('T')[0];
-
-        // Validação e tratamento dos dados do cartão
-        const [expiryMonth, expiryYear] = cardDetails.validade.split('/');
-        if (!expiryMonth || !expiryYear) {
-            setSnackbar({ open: true, message: 'Formato de validade inválido.', severity: 'error' });
-            return;
-        }
-
-        const payload = {
-            customer: customerId,
-            billingType: 'CREDIT_CARD',
-            dueDate,
-            creditCard: {
-                holderName: cardDetails.nomeCartao,
-                number: cardDetails.numeroCartao.replace(/\s/g, ''),
-                expiryMonth,
-                expiryYear: `20${expiryYear}`, // Garantindo que o ano seja no formato correto
-                ccv: cardDetails.cvv,
-            },
-            creditCardHolderInfo: {
-                name: cardHolderInfo.name, // Corrigido para o campo 'nome' que deve ser enviado
-                email: cardHolderInfo.email,
-                cpfCnpj: formData.cpf,
-                postalCode: cardHolderInfo.postalCode,
-                addressNumber: cardHolderInfo.addressNumber,
-                mobilePhone: cardHolderInfo.mobilePhone,
-            },
-            remoteIp,
-        };
-
-        // Validação e definição do valor total e parcelas
-        const totalValueParsed = parseFloat(totalValue);
-        if (isNaN(totalValueParsed)) {
-            setSnackbar({ open: true, message: 'Valor inválido.', severity: 'error' });
-            return;
-        }
-
-        if (installments === 1) {
-            payload.value = totalValueParsed.toFixed(2);
-        } else {
-            payload.installmentCount = installments;
-            payload.totalValue = totalValueParsed.toFixed(2);
-        }
-
-        // Enviar o pedido de pagamento
-        const response = await fetch(`${baseURL}/payments`, {
-            method: 'POST',
-            headers: {
-                accept: 'application/json',
-                'content-type': 'application/json',
-                access_token: ASaasToken,
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.status === 'CONFIRMED') {
-            setPaymentStatus('PAID');
-            setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
-            finalizeCheckout();
-
-            const countdown = setInterval(() => {
-                setRedirectCountdown((prev) => {
-                    if (prev <= 1) {
-                        clearInterval(countdown);
-                        window.location.href = 'https://wa.me/553192250059';
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        } else {
-            if (data.errors && Array.isArray(data.errors)) {
-                const errorMessage = data.errors[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
-                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-            } else {
-                setSnackbar({ open: true, message: 'Erro ao processar pagamento. Tente novamente.', severity: 'error' });
+            if (isNaN(totalValueParsed)) {
+                throw new Error("Valor total inválido");
             }
-        }
-    } catch (error) {
-        // Trata erros inesperados
-        if (error instanceof Error) {
-            setSnackbar({ open: true, message: `Erro ao processar pagamento: ${error.message}`, severity: 'error' });
-        } else {
-            setSnackbar({ open: true, message: 'Erro desconhecido ao processar pagamento.', severity: 'error' });
-        }
-    } finally {
-        setLoading(false);
-    }
-};
+            // Sanitizar dados antes do envio
+            const sanitizedCardDetails = sanitizeCardData(cardDetails);
 
+            // Validar número do cartão usando algoritmo de Luhn
+            if (!validateCardPCI(sanitizedCardDetails.numeroCartao)) {
+                throw new Error("Número de cartão inválido");
+            }
+
+            let customer = await fetchCustomer();
+            if (!customer) {
+                customer = await createCustomer();
+            }
+
+            if (!customer.id) {
+                throw new Error("Falha ao obter o ID do cliente.");
+            }
+
+            const [expiryMonth, expiryYear] = sanitizedCardDetails.validade.split('/');
+
+            // Validar data de expiração
+            const currentDate = new Date();
+            const cardDate = new Date(2000 + parseInt(expiryYear), parseInt(expiryMonth) - 1);
+
+            if (cardDate < currentDate) {
+                throw new Error("Cartão expirado");
+            }
+
+            const remoteIp = await fetch('https://api.ipify.org?format=json')
+                .then((res) => res.json())
+                .then((data) => data.ip);
+            
+            const payload = {
+                customer: customer.id,
+                billingType: 'CREDIT_CARD',
+                dueDate: new Date().toISOString().split('T')[0],
+                value: installments === 1 ? totalValueParsed.toFixed(2) : undefined,
+                installmentCount: installments > 1 ? installments : undefined,
+                totalValue: installments > 1 ? totalValueParsed.toFixed(2) : undefined,
+                creditCard: {
+                    holderName: sanitizedCardDetails.nomeCartao,
+                    number: sanitizedCardDetails.numeroCartao,
+                    expiryMonth,
+                    expiryYear: `20${expiryYear}`,
+                    ccv: sanitizedCardDetails.cvv,
+                },
+                creditCardHolderInfo: {
+                    name: cardHolderInfo.name,
+                    email: cardHolderInfo.email,
+                    cpfCnpj: formData.cpf,
+                    postalCode: cardHolderInfo.postalCode,
+                    addressNumber: cardHolderInfo.addressNumber,
+                    mobilePhone: cardHolderInfo.mobilePhone,
+                },
+                remoteIp,
+            };
+
+            const response = await fetch(`${baseURL}/payments`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'CONFIRMED') {
+                setPaymentStatus('PAID');
+                setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
+                finalizeCheckout();
+                // Limpar dados sensíveis após confirmação
+                clearSensitiveData();
+                handleRedirect();
+            } else {
+                const errorMessage = data.errors?.[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
+                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            }
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: `Erro ao processar pagamento: ${error.message || 'Erro desconhecido'}`,
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <Box sx={{ p: 3 }}>
@@ -517,7 +583,8 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 </Box>
             )}
 
-            Escolha a forma de pagamento:
+            <Typography variant="h6" sx={{ mb: 2 }}>Escolha a forma de pagamento:</Typography>
+
             <Box
                 component="form"
                 noValidate
@@ -533,19 +600,17 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                     e.preventDefault();
                     if (formaPagamento === 'cartaoCredito') {
                         handleCardPayment();
-                    }
-                    if (formaPagamento === 'pix') {
+                    } else if (formaPagamento === 'pix') {
                         handlePixPayment();
                     }
                 }}
             >
-                <FormControl component="fieldset" sx={{ mt: 2 }}>
+                <FormControl component="fieldset">
                     <RadioGroup
                         name="formaPagamento"
                         value={formaPagamento}
                         onChange={handleFormChange}
                         sx={{
-                            mt: 1,
                             flexDirection: { xs: 'column', sm: 'row' },
                             justifyContent: 'center',
                             gap: 2,
@@ -555,7 +620,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             value="cartaoCredito"
                             control={
                                 <Radio
-                                    sx={{ color: '#00695c', '&.Mui-checked': { color: '#00695c' } }}
+                                    sx={{
+                                        color: '#00695c',
+                                        '&.Mui-checked': { color: '#00695c' }
+                                    }}
                                     disabled={disableOptions}
                                 />
                             }
@@ -565,7 +633,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             value="pix"
                             control={
                                 <Radio
-                                    sx={{ color: '#00695c', '&.Mui-checked': { color: '#00695c' } }}
+                                    sx={{
+                                        color: '#00695c',
+                                        '&.Mui-checked': { color: '#00695c' }
+                                    }}
                                 />
                             }
                             label="Pix"
@@ -574,7 +645,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 </FormControl>
 
                 {formaPagamento === 'cartaoCredito' && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 400, mx: 'auto' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
                             label="Nome no Cartão"
                             name="nomeCartao"
@@ -594,7 +665,13 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             helperText={errors.numeroCartao}
                             fullWidth
                             size="small"
+                            inputProps={{
+                                maxLength: 19,
+                                autoComplete: 'cc-number',
+                                'data-mask': '#### #### #### ####'
+                            }}
                         />
+
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <TextField
                                 label="Validade (MM/AA)"
@@ -613,14 +690,29 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                                 onChange={handleCardDetailChange}
                                 error={!!errors.cvv}
                                 helperText={errors.cvv}
+                                type={showCVV ? 'text' : 'password'}
+                                InputProps={{
+                                    endAdornment: (
+                                        <IconButton
+                                            aria-label="toggle cvv visibility"
+                                            onClick={() => setShowCVV(!showCVV)}
+                                            edge="end"
+                                        >
+                                            {showCVV ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    ),
+                                }}
                                 fullWidth
                                 size="small"
+                                inputProps={{
+                                    maxLength: 3,
+                                    autoComplete: 'cc-csc'
+                                }}
                             />
                         </Box>
                         <TextField
-                            label="Número de Parcelas"
-                            name="installments"
                             select
+                            label="Número de Parcelas"
                             value={installments}
                             onChange={(e) => setInstallments(Number(e.target.value))}
                             fullWidth
@@ -628,56 +720,37 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                         >
                             {[1, 2, 3, 4].map((parcel) => (
                                 <MenuItem key={parcel} value={parcel}>
-                                    {parcel}
+                                    {parcel}x {parcel === 1 ? 'à vista' : 'sem juros'}
                                 </MenuItem>
                             ))}
                         </TextField>
-                        <TextField
-                            label="CEP do Endereço do Cartão"
-                            name="postalCode"
-                            value={cardHolderInfo.postalCode}
-                            onChange={handleCardHolderInfoChange}
-                            error={!!errors.postalCode}
-                            helperText={errors.postalCode}
-                            fullWidth
-                            size="small"
-                        />
-                        <TextField
-                            label="Número do Endereço"
-                            name="addressNumber"
-                            value={cardHolderInfo.addressNumber}
-                            onChange={handleCardHolderInfoChange}
-                            error={!!errors.addressNumber}
-                            helperText={errors.addressNumber}
-                            fullWidth
-                            size="small"
-                        />
-                        <TextField
-                            label="Email do Portador"
-                            name="email"
-                            value={cardHolderInfo.email}
-                            onChange={handleCardHolderInfoChange}
-                            error={!!errors.email}
-                            helperText={errors.email}
-                            fullWidth
-                            size="small"
-                        />
-                        <TextField
-                            label="DDD + Telefone"
-                            name="mobilePhone"
-                            value={cardHolderInfo.mobilePhone}
-                            onChange={handleCardHolderInfoChange}
-                            error={!!errors.mobilePhone}
-                            helperText={errors.mobilePhone}
-                            fullWidth
-                            size="small"
-                        />
+                        {[
+                            { label: 'CEP', name: 'postalCode' },
+                            { label: 'Número do Endereço', name: 'addressNumber' },
+                            { label: 'Email', name: 'email' },
+                            { label: 'Telefone', name: 'mobilePhone' },
+                        ].map((field) => (
+                            <TextField
+                                key={field.name}
+                                label={field.label}
+                                name={field.name}
+                                value={cardHolderInfo[field.name]}
+                                onChange={handleCardHolderInfoChange}
+                                error={!!errors[field.name]}
+                                helperText={errors[field.name]}
+                                fullWidth
+                                size="small"
+                            />
+                        ))}
                         <Button
                             variant="contained"
-                            color="primary"
                             type="submit"
                             disabled={loading}
-                            sx={{ bgcolor: '#00695c', ':hover': { bgcolor: '#004d40' } }}
+                            sx={{
+                                bgcolor: '#00695c',
+                                ':hover': { bgcolor: '#004d40' },
+                                height: 48
+                            }}
                         >
                             {loading ? <CircularProgress size={24} /> : 'Finalizar Pagamento'}
                         </Button>
@@ -685,7 +758,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 )}
 
                 {formaPagamento === 'pix' && (
-                    <>
+                    <Box sx={{ mt: 2 }}>
                         {loading && !qrcode && (
                             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                                 <CircularProgress />
@@ -693,24 +766,16 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                         )}
 
                         {!loading && !qrcode && !isQrCodeUpdated && (
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    mt: 3,
-                                }}
-                            >
+                            <Box sx={{ textAlign: 'center', mt: 3 }}>
                                 <Typography variant="subtitle1" sx={{ mb: 2 }}>
                                     O QR Code expirou. Clique abaixo para gerar um novo.
                                 </Typography>
                                 <Button
                                     variant="contained"
-                                    onClick={() => handlePixPayment()}
+                                    onClick={handlePixPayment}
                                     sx={{
                                         bgcolor: '#00695c',
-                                        ':hover': { bgcolor: '#004d40' },
+                                        ':hover': { bgcolor: '#004d40' }
                                     }}
                                 >
                                     Novo QR Code
@@ -721,26 +786,24 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                         {!loading && qrcode && paymentStatus !== 'PAID' && (
                             <Box
                                 sx={{
-                                    mt: 3,
                                     textAlign: 'center',
-                                    position: 'relative',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 2,
-                                    p: 2,
                                     border: '1px solid #00695c',
                                     borderRadius: 2,
+                                    p: 3,
                                 }}
                             >
                                 <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                                    Escaneie o QR Code abaixo para realizar o pagamento:
+                                    Escaneie o QR Code para pagar:
                                 </Typography>
                                 <img
                                     src={`data:image/png;base64,${qrcode}`}
                                     alt="QR Code PIX"
-                                    style={{ width: '100%', maxWidth: 300, height: 'auto' }}
+                                    style={{
+                                        width: '100%',
+                                        maxWidth: 300,
+                                        height: 'auto',
+                                        margin: '0 auto'
+                                    }}
                                 />
                                 <Button
                                     variant="contained"
@@ -751,14 +814,14 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                                         bgcolor: '#00695c',
                                         ':hover': { bgcolor: '#004d40' },
                                         width: '100%',
-                                        maxWidth: 300,
+                                        maxWidth: 300
                                     }}
                                 >
                                     Copiar código PIX
                                 </Button>
                             </Box>
                         )}
-                    </>
+                    </Box>
                 )}
             </Box>
 
@@ -768,7 +831,11 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                 onClose={handleSnackbarClose}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
-                <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+                <Alert
+                    onClose={handleSnackbarClose}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
                     {snackbar.message}
                 </Alert>
             </Snackbar>
