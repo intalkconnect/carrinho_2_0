@@ -24,6 +24,7 @@ import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import { Snackbar, Alert } from '@mui/material';
 // Importe as imagens
 import Logo1 from '../assets/logo.webp';
+import LogoCentro from '../assets/logo1.png';
 
 const Checkout = () => {
     const { orcamentos, updateTotalValue, status } = useOrcamentos();
@@ -78,14 +79,28 @@ const Checkout = () => {
         calculateTotal();
     }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
 
-    if (!status) {
+if (!status) {
     return (
         <Box
             sx={{
                 minHeight: '100vh',
-                bgcolor: '#ffffff', // Página branca
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                bgcolor: '#ffffff',
             }}
-        />
+        >
+            <img
+                src={LogoCentro} // Substitua pelo caminho da sua imagem
+                alt="Carregando"
+                style={{
+                    maxWidth: '300px',
+                    maxHeight: '300px',
+                    width: '100%',
+                    height: 'auto',
+                }}
+            />
+        </Box>
     );
 }
     
