@@ -49,17 +49,17 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     const activePixId = useRef(null);
     const paymentIntervalRef = useRef(null);
 
-    const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
-    const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
-
     useEffect(() => {
-        formaPagamentoRef.current = formaPagamento;
         return () => {
             if (paymentIntervalRef.current) {
                 clearInterval(paymentIntervalRef.current);
+                paymentIntervalRef.current = null;
             }
         };
-    }, [formaPagamento]);
+    }, []);
+
+    const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
+    const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
 
     const handleSnackbarClose = () => setSnackbar(prev => ({ ...prev, open: false }));
 
@@ -128,10 +128,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             validade: '',
             cvv: '',
         });
-        // Limpar dados do form após uso
-        if (document.getElementById('cardForm')) {
-            document.getElementById('cardForm').reset();
-        }
+        // // Limpar dados do form após uso
+        // if (document.getElementById('cardForm')) {
+        //     document.getElementById('cardForm').reset();
+        // }
     };
 
     const sanitizeCardData = (cardData) => {
@@ -677,6 +677,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
             <Box
                 component="form"
+                key={formaPagamento}
                 noValidate
                 autoComplete="off"
                 sx={{
