@@ -298,9 +298,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             setRedirectCountdown((prev) => {
                 if (prev <= 1) {
                     clearInterval(countdown);
-                    window.location.href = formaPagamento === 'pix'
-                        ? 'https://wa.me/5521990286724'
-                        : 'https://wa.me/553192250059';
+                    window.location.href = 'https://wa.me/553192250059';
                 }
                 return prev - 1;
             });
