@@ -193,6 +193,8 @@ if (!status) {
         }
         const id = window.location.pathname.replace('/', '');
 
+        console.log('Caminho:', window.location.pathname);
+
         const orcPaciente = orcamentos[0]?.orc_paciente;
         if (!orcPaciente) {
         setSnackbar({
@@ -231,6 +233,7 @@ if (!status) {
             total: produtosValidos.reduce((sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido, 0) + parseFloat(formData.frete),
             identity: orcPaciente.replace(/^B/, '') + '@wa.gw.msging.net'
         };
+        console.log('Payload enviado:', JSON.stringify(payload, null, 2));
 
         // Envia o payload para a API
         fetch('https://endpoints-checkout.rzyewu.easypanel.host/finish-checkout', {
