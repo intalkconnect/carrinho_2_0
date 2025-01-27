@@ -78,7 +78,17 @@ const Checkout = () => {
         calculateTotal();
     }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
 
-
+    if (!status) {
+    return (
+        <Box
+            sx={{
+                minHeight: '100vh',
+                bgcolor: '#ffffff', // Página branca
+            }}
+        />
+    );
+}
+    
     // Exibe mensagens baseadas no status do orçamento
     if (status === 'expired') {
         return (
