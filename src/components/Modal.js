@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -8,6 +8,7 @@ import {
     ListItemText,
     ListItemIcon,
     Divider,
+    Fade, // Importe o Fade
 } from '@mui/material';
 import { Circle } from '@mui/icons-material';
 
@@ -15,36 +16,56 @@ const capitalizeFirstLetter = (string) =>
     string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 
 const Modal = ({ isVisible, onClose, items }) => {
-    if (!isVisible) return null;
+    // Adicione um useEffect para lidar com o cleanup
+    useEffect(() => {
+        const handleEscapeKey = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
 
+        if (isVisible) {
+            document.addEventListener('keydown', handleEscapeKey);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscapeKey);
+        };
+    }, [isVisible, onClose]);
+
+    // Use o componente Fade do MUI para animações suaves
     return (
-        <Box
-            sx={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                bgcolor: 'rgba(0, 0, 0, 0.5)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 1300,
-            }}
-            onClick={onClose}
-        >
+        <Fade in={isVisible}>
             <Box
                 sx={{
-                    bgcolor: 'white',
-                    borderRadius: 3,
-                    p: 3,
-                    maxWidth: '500px',
-                    width: '90%',
-                    boxShadow: 4,
-                    position: 'relative',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    bgcolor: 'rgba(0, 0, 0, 0.5)',
+                    display: isVisible ? 'flex' : 'none', // Controle de visibilidade mais suave
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1300,
                 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                    e.preventDefault();
+                    onClose();
+                }}
             >
+                <Box
+                    sx={{
+                        bgcolor: 'white',
+                        borderRadius: 3,
+                        p: 3,
+                        maxWidth: '500px',
+                        width: '90%',
+                        boxShadow: 4,
+                        position: 'relative',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
                 <Typography
                     variant="h6"
                     sx={{
@@ -112,7 +133,8 @@ const Modal = ({ isVisible, onClose, items }) => {
                     Fechar
                 </Button>
             </Box>
-        </Box>
+            </Box>
+        </Fade>
     );
 };
 
