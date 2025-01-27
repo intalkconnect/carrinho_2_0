@@ -522,106 +522,129 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
 
     // Modificar handleCardPayment para incluir segurança adicional
     const handleCardPayment = async () => {
-        if (!validateCardDetails()) return;
+    if (!validateCardDetails()) {
+        console.log("Erro: Detalhes do cartão inválidos.");
+        return;
+    }
 
-        setLoading(true);
-        try {
+    setLoading(true);
+    try {
+        console.log("Iniciando o processo de pagamento...");
 
-            // Converter totalValue para número e garantir 2 casas decimais
-            const totalValueParsed = parseFloat(totalValue);
+        // Converter totalValue para número e garantir 2 casas decimais
+        const totalValueParsed = parseFloat(totalValue);
+        console.log("Valor total após conversão:", totalValueParsed);
 
-            if (isNaN(totalValueParsed)) {
-                throw new Error("Valor total inválido");
-            }
-            // Sanitizar dados antes do envio
-            const sanitizedCardDetails = sanitizeCardData(cardDetails);
-
-            // Validar número do cartão usando algoritmo de Luhn
-            if (!validateCardPCI(sanitizedCardDetails.numeroCartao)) {
-                throw new Error("Número de cartão inválido");
-            }
-
-            let customer = await fetchCustomer();
-            if (!customer) {
-                customer = await createCustomer();
-            }
-
-            if (!customer.id) {
-                throw new Error("Falha ao obter o ID do cliente.");
-            }
-
-            const [expiryMonth, expiryYear] = sanitizedCardDetails.validade.split('/');
-
-            // Validar data de expiração
-            const currentDate = new Date();
-            const cardDate = new Date(2000 + parseInt(expiryYear), parseInt(expiryMonth) - 1);
-
-            if (cardDate < currentDate) {
-                throw new Error("Cartão expirado");
-            }
-
-            const remoteIp = await fetch('https://api.ipify.org?format=json')
-                .then((res) => res.json())
-                .then((data) => data.ip);
-            
-            const payload = {
-                customer: customer.id,
-                billingType: 'CREDIT_CARD',
-                dueDate: new Date().toISOString().split('T')[0],
-                value: installments === 1 ? totalValueParsed.toFixed(2) : undefined,
-                installmentCount: installments > 1 ? installments : undefined,
-                totalValue: installments > 1 ? totalValueParsed.toFixed(2) : undefined,
-                creditCard: {
-                    holderName: sanitizedCardDetails.nomeCartao,
-                    number: sanitizedCardDetails.numeroCartao,
-                    expiryMonth,
-                    expiryYear: `20${expiryYear}`,
-                    ccv: sanitizedCardDetails.cvv,
-                },
-                creditCardHolderInfo: {
-                    name: cardHolderInfo.name,
-                    email: cardHolderInfo.email,
-                    cpfCnpj: formData.cpf,
-                    postalCode: cardHolderInfo.postalCode,
-                    addressNumber: cardHolderInfo.addressNumber,
-                    mobilePhone: cardHolderInfo.mobilePhone,
-                },
-                remoteIp,
-            };
-
-            const response = await fetch(`${baseURL}/payments`, {
-                method: 'POST',
-                headers: {
-                    accept: 'application/json',
-                    'content-type': 'application/json',
-                    access_token: ASaasToken,
-                },
-                body: JSON.stringify(payload),
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.status === 'CONFIRMED') {
-                setPaymentStatus('PAID');
-                setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
-                finalizeCheckout();
-                // Limpar dados sensíveis após confirmação
-                clearSensitiveData();
-                handleRedirect();
-            } else {
-                const errorMessage = data.errors?.[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
-                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-            }
-        } catch (error) {
-            setSnackbar({
-                open: true,
-                message: `Erro ao processar pagamento: ${error.message || 'Erro desconhecido'}`,
-                severity: 'error'
-            });
-        } finally {
-            setLoading(false);
+        if (isNaN(totalValueParsed)) {
+            console.log("Erro: Valor total inválido.");
+            throw new Error("Valor total inválido");
         }
-    };
+
+        // Sanitizar dados antes do envio
+        const sanitizedCardDetails = sanitizeCardData(cardDetails);
+        console.log("Dados do cartão sanitizados:", sanitizedCardDetails);
+
+        // Validar número do cartão usando algoritmo de Luhn
+        if (!validateCardPCI(sanitizedCardDetails.numeroCartao)) {
+            console.log("Erro: Número de cartão inválido.");
+            throw new Error("Número de cartão inválido");
+        }
+
+        let customer = await fetchCustomer();
+        console.log("Cliente recuperado:", customer);
+
+        if (!customer) {
+            console.log("Cliente não encontrado. Criando um novo cliente...");
+            customer = await createCustomer();
+        }
+
+        if (!customer.id) {
+            console.log("Erro: Falha ao obter o ID do cliente.");
+            throw new Error("Falha ao obter o ID do cliente.");
+        }
+
+        const [expiryMonth, expiryYear] = sanitizedCardDetails.validade.split('/');
+        console.log(`Mês de validade: ${expiryMonth}, Ano de validade: ${expiryYear}`);
+
+        // Validar data de expiração
+        const currentDate = new Date();
+        const cardDate = new Date(2000 + parseInt(expiryYear), parseInt(expiryMonth) - 1);
+
+        if (cardDate < currentDate) {
+            console.log("Erro: Cartão expirado.");
+            throw new Error("Cartão expirado");
+        }
+
+        const remoteIp = await fetch('https://api.ipify.org?format=json')
+            .then((res) => res.json())
+            .then((data) => data.ip);
+        console.log("IP remoto obtido:", remoteIp);
+
+        const payload = {
+            customer: customer.id,
+            billingType: 'CREDIT_CARD',
+            dueDate: new Date().toISOString().split('T')[0],
+            value: installments === 1 ? totalValueParsed.toFixed(2) : undefined,
+            installmentCount: installments > 1 ? installments : undefined,
+            totalValue: installments > 1 ? totalValueParsed.toFixed(2) : undefined,
+            creditCard: {
+                holderName: sanitizedCardDetails.nomeCartao,
+                number: sanitizedCardDetails.numeroCartao,
+                expiryMonth,
+                expiryYear: `20${expiryYear}`,
+                ccv: sanitizedCardDetails.cvv,
+            },
+            creditCardHolderInfo: {
+                name: cardHolderInfo.name,
+                email: cardHolderInfo.email,
+                cpfCnpj: formData.cpf,
+                postalCode: cardHolderInfo.postalCode,
+                addressNumber: cardHolderInfo.addressNumber,
+                mobilePhone: cardHolderInfo.mobilePhone,
+            },
+            remoteIp,
+        };
+
+        console.log("Payload enviado para o servidor:", JSON.stringify(payload, null, 2));
+
+        const response = await fetch(`${baseURL}/payments`, {
+            method: 'POST',
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                access_token: ASaasToken,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        console.log("Resposta da API de pagamento:", data);
+
+        if (response.ok && data.status === 'CONFIRMED') {
+            console.log("Pagamento confirmado!");
+            setPaymentStatus('PAID');
+            setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
+            finalizeCheckout();
+            // Limpar dados sensíveis após confirmação
+            clearSensitiveData();
+            handleRedirect();
+        } else {
+            const errorMessage = data.errors?.[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
+            console.log("Erro ao processar pagamento:", errorMessage);
+            setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+        }
+    } catch (error) {
+        console.error("Erro ao processar pagamento:", error);
+        setSnackbar({
+            open: true,
+            message: `Erro ao processar pagamento: ${error.message || 'Erro desconhecido'}`,
+            severity: 'error'
+        });
+    } finally {
+        setLoading(false);
+    }
+};
+
 
     return (
         <Box sx={{ p: 3 }}>
