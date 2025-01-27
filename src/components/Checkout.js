@@ -199,7 +199,7 @@ if (!status) {
     console.log('Caminho:', window.location.pathname);
     console.log('ID do checkout:', id);
 
-    const orcPaciente = orcamentos[0]?.orc_paciente;
+    const orcPaciente = orcamentos[0]?.orc_numero;
     if (!orcPaciente) {
         console.log("Erro: Dados do paciente não encontrados.");
         setSnackbar({
