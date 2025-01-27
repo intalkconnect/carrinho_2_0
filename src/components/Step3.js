@@ -620,7 +620,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         const data = await response.json();
         console.log("Resposta da API de pagamento:", data);
 
-        if (response.ok && data.status === 'CONFIRMED') {
+        if (data.status === 'CONFIRMED') {
             console.log("Pagamento confirmado!");
             setPaymentStatus('PAID');
             setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
