@@ -230,7 +230,7 @@ if (!status) {
             estado: formData.estado,
             cep: formData.cep,
             tipoFrete: formData.tipoFrete
-        } : null,
+        } : "Local",
         localRetirada: formData.tipoEntrega === 'retirada' ? formData.localRetirada : null,
         formaPagamento: formData.formaPagamento || "pix",
         produtos: produtosValidos,
