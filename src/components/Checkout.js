@@ -59,11 +59,23 @@ const Checkout = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
     };
 
-    useEffect(() => {
-        document.body.style.margin = '0';
-        document.body.style.padding = '0';
-        document.body.style.overflowX = 'hidden';
-    }, []);
+useEffect(() => {
+    const originalStyles = {
+        margin: document.body.style.margin,
+        padding: document.body.style.padding,
+        overflowX: document.body.style.overflowX
+    };
+    
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.overflowX = 'hidden';
+    
+    return () => {
+        document.body.style.margin = originalStyles.margin;
+        document.body.style.padding = originalStyles.padding;
+        document.body.style.overflowX = originalStyles.overflowX;
+    };
+}, []);
 
     // Cálculo do valor total
     useEffect(() => {
