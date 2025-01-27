@@ -29,10 +29,8 @@ import LogoCentro from '../assets/logo1.png';
 const Checkout = () => {
     const { orcamentos, updateTotalValue, status } = useOrcamentos();
     const [expanded, setExpanded] = useState('step1');
-    const [modalState, setModalState] = useState({
-    isVisible: false,
-    items: []
-    });
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [modalItems, setModalItems] = useState([]);
     const [totalValue, setTotalValue] = useState(0); // Adicionado para cálculo do valor total
 
 
@@ -314,26 +312,14 @@ if (!status) {
         setExpanded('step3');
     };
 
-const handleOpenModal = useCallback((items) => {
-    setModalState({
-        isVisible: true,
-        items
-    });
-}, []);
+    const handleOpenModal = (items) => {
+        setModalItems(items);
+        setIsModalVisible(true);
+    };
 
-const handleCloseModal = useCallback(() => {
-    setModalState(prev => ({
-        ...prev,
-        isVisible: false
-    }));
-    // Limpe os items depois que a animação terminar
-    setTimeout(() => {
-        setModalState(prev => ({
-            ...prev,
-            items: []
-        }));
-    }, 300);
-}, []);
+    const handleCloseModal = () => {
+        setIsModalVisible(false);
+    };
 
     if (!window.location.pathname.replace('/', '')) {
         return (
@@ -521,13 +507,13 @@ const handleCloseModal = useCallback(() => {
                 </Grid>
             </Container>
            
-           
-<Modal
-    isVisible={modalState.isVisible}
-    onClose={handleCloseModal}
-    items={modalState.items}
-/>
-            
+            {isModalVisible && (
+                <Modal
+                    isVisible={isModalVisible}
+                    onClose={handleCloseModal}
+                    items={modalItems}
+                />
+            )}
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={6000} // Fecha automaticamente após 6 segundos
