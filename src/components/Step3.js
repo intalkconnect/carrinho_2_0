@@ -35,6 +35,13 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         validade: '',
         cvv: '',
     });
+    const [disabledFields, setDisabledFields] = useState({
+    nomeCartao: false,
+    numeroCartao: false,
+    validade: false,
+    cvv: false,
+    });
+
     const [cardBrand, setCardBrand] = useState('');
     const [showCVV, setShowCVV] = useState(false);
     const [installments, setInstallments] = useState(1);
@@ -133,6 +140,16 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
         //     document.getElementById('cardForm').reset();
         // }
     };
+
+    const toggleCardFields = (disabled) => {
+        setDisabledFields({
+            nomeCartao: disabled,
+            numeroCartao: disabled,
+            validade: disabled,
+            cvv: disabled,
+        });
+    };
+
 
     const sanitizeCardData = (cardData) => {
         return {
@@ -526,6 +543,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
     }
 
     setLoading(true);
+    toggleCardFields(true);
     try {
         console.log("Iniciando o processo de pagamento...");
 
@@ -630,6 +648,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             const errorMessage = data.errors?.[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
             console.log("Erro ao processar pagamento:", errorMessage);
             setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            toggleCardFields(false);
         }
     } catch (error) {
         console.error("Erro ao processar pagamento:", error);
@@ -638,8 +657,10 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
             message: `Erro ao processar pagamento: ${error.message || 'Erro desconhecido'}`,
             severity: 'error'
         });
+        toggleCardFields(false);
     } finally {
         setLoading(false);
+        
     }
 };
 
