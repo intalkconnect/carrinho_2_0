@@ -763,6 +763,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                             name="nomeCartao"
                             value={cardDetails.nomeCartao}
                             onChange={handleCardDetailChange}
+                            disabled={disabledFields.nomeCartao}
                             error={!!errors.nomeCartao}
                             helperText={errors.nomeCartao}
                             fullWidth
@@ -774,6 +775,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                                 name="numeroCartao"
                                 value={cardDetails.numeroCartao}
                                 onChange={handleCardDetailChange}
+                                disabled={disabledFields.numeroCartao}
                                 error={!!errors.numeroCartao}
                                 helperText={errors.numeroCartao || (cardBrand && getCardBrandIcon(cardBrand))}
                                 fullWidth
@@ -791,6 +793,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                                 name="validade"
                                 value={cardDetails.validade}
                                 onChange={handleCardDetailChange}
+                                disabled={disabledFields.validade}
                                 error={!!errors.validade}
                                 helperText={errors.validade}
                                 fullWidth
@@ -801,6 +804,7 @@ const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) =>
                                 name="cvv"
                                 value={cardDetails.cvv}
                                 onChange={handleCardDetailChange}
+                                disabled={disabledFields.cvv}
                                 error={!!errors.cvv}
                                 helperText={errors.cvv}
                                 type={showCVV ? 'text' : 'password'}
