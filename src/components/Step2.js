@@ -521,7 +521,16 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-          <Button variant="contained" color="primary" onClick={handleNext} sx={{ minWidth: 120 }}>
+          <Button  variant="contained"
+                    color="primary"
+                    onClick={handleNext}
+                    sx={{
+                        alignSelf: 'flex-end',
+                        marginTop: 2,
+                        bgcolor: '#00695c',
+                        ':hover': { bgcolor: '#004d40' },
+                    }}
+                >
             Salvar e avançar
           </Button>
         </Box>
