@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useFormContext } from 'react-hook-form';
 import {
     Box,
     Radio,
@@ -12,8 +11,6 @@ import {
     Typography,
     Snackbar,
     Alert,
-    FormLabel,
-    FormHelperText
 } from '@mui/material';
 import { consultarCEP } from '../services/api';
 
@@ -64,45 +61,92 @@ const estadosBrasil = [
     'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins'
 ];
 
-const Step2 = ({ nextStep, prevStep }) => {
-    const { register, formState: { errors }, watch, setValue, getValues } = useFormContext();
+const Step2 = ({ formData, handleInputChange, nextStep, prevStep }) => {
+    const [tipoEntrega, setTipoEntrega] = useState(formData.tipoEntrega || '');
+    const [selectedLocal, setSelectedLocal] = useState(formData.localRetirada || '');
     const [loadingCep, setLoadingCep] = useState(false);
+    const [frete, setFrete] = useState(0);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [metodosFrete, setMetodosFrete] = useState({ pac: null, sedex: null });
     const [disabledFields, setDisabledFields] = useState({
         endereco: true,
         bairro: true,
         cidade: true,
         estado: true,
     });
+    const [errors, setErrors] = useState({});
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
         severity: 'info',
     });
-    const [modalVisible, setModalVisible] = useState(false);
-    const [metodosFrete, setMetodosFrete] = useState({ pac: null, sedex: null });
 
-    const tipoEntrega = watch('tipoEntrega');
-    const selectedLocal = watch('localRetirada');
+    const handleSnackbarClose = () => {
+        setSnackbar((prev) => ({ ...prev, open: false }));
+    };
+
+    const handleOptionChange = (e) => {
+        const value = e.target.value;
+        setTipoEntrega(value);
+        handleInputChange(e);
+
+        if (value === 'retirada') {
+            setFrete(0);
+            handleInputChange({ target: { name: 'frete', value: '0.00' } });
+            setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
+            const clearedFields = {
+                cep: '',
+                endereco: '',
+                numero: '',
+                complemento: '',
+                bairro: '',
+                cidade: '',
+                estado: '',
+            };
+            Object.keys(clearedFields).forEach((key) => {
+                handleInputChange({ target: { name: key, value: clearedFields[key] } });
+            });
+            setDisabledFields({
+                endereco: true,
+                bairro: true,
+                cidade: true,
+                estado: true,
+            });
+        }
+        if (value === 'entrega') {
+            setSelectedLocal('');
+        }
+    };
+
+    const handleLocalChange = (event) => {
+        const selectedId = event.target.value;
+        setSelectedLocal(selectedId);
+        handleInputChange({ target: { name: 'localRetirada', value: selectedId } });
+
+        if (errors.localRetirada) {
+            setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
+        }
+    };
 
     const handleCepBlur = async () => {
-        const cep = getValues('cep');
-        if (!cep || cep.length !== 8) {
-            setSnackbar({
-                open: true,
-                message: 'CEP inválido. Certifique-se de que possui 8 dígitos.',
-                severity: 'error'
-            });
+        if (!formData.cep || formData.cep.length !== 8) {
+            setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
             return;
         }
 
-        setLoadingCep(true);
+        let isCancelled = false;
+
         try {
-            const data = await consultarCEP(cep);
-            
-            setValue('endereco', data.logradouro || '');
-            setValue('bairro', data.bairro || '');
-            setValue('cidade', data.localidade || '');
-            setValue('estado', data.estado || '');
+            setLoadingCep(true);
+
+            const data = await consultarCEP(formData.cep);
+
+            if (isCancelled) return;
+
+            handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
+            handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
+            handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
+            handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
 
             setDisabledFields({
                 endereco: !!data.logradouro,
@@ -112,20 +156,20 @@ const Step2 = ({ nextStep, prevStep }) => {
             });
 
             if (data.local) {
-                setValue('frete', parseFloat(data.local));
+                const localFrete = parseFloat(data.local);
+                setFrete(localFrete);
+                handleInputChange({ target: { name: 'frete', value: localFrete.toFixed(2) } });
             } else if (data.pac || data.sedex) {
                 setMetodosFrete({
                     pac: data.pac ? parseFloat(data.pac) : null,
                     sedex: data.sedex ? parseFloat(data.sedex) : null,
                 });
                 setModalVisible(true);
+            } else {
+                setFrete(0);
             }
         } catch (error) {
-            setSnackbar({
-                open: true,
-                message: 'Erro ao buscar o CEP. Verifique e tente novamente.',
-                severity: 'warning'
-            });
+            setSnackbar({ open: true, message: 'Erro ao buscar o CEP. Verifique e tente novamente.', severity: 'warning' });
             setDisabledFields({
                 endereco: false,
                 bairro: false,
@@ -134,273 +178,381 @@ const Step2 = ({ nextStep, prevStep }) => {
             });
         } finally {
             setLoadingCep(false);
+            return () => {
+                isCancelled = true;
+            };
         }
     };
 
-    const selectedInfo = locaisRetirada.find(local => local.id === selectedLocal);
+    const handleCepChange = (e) => {
+        const { value } = e.target;
+        handleInputChange({ target: { name: 'cep', value } });
+
+        if (value.length === 8) {
+            setFrete(0);
+            setModalVisible(false);
+        }
+
+        if (errors.cep) {
+            setErrors((prev) => ({ ...prev, cep: null }));
+        }
+    };
+
+    const handleNext = () => {
+        const newErrors = {};
+
+        if (tipoEntrega === 'entrega') {
+            if (!formData.cep || formData.cep.length !== 8) {
+                newErrors.cep = 'CEP é obrigatório e deve conter 8 dígitos.';
+            }
+            if (!formData.endereco) newErrors.endereco = 'Endereço é obrigatório.';
+            if (!formData.numero) newErrors.numero = 'Número é obrigatório.';
+            if (!formData.bairro) newErrors.bairro = 'Bairro é obrigatório.';
+            if (!formData.cidade) newErrors.cidade = 'Cidade é obrigatória.';
+            if (!formData.estado) newErrors.estado = 'Estado é obrigatório.';
+        }
+
+        if (tipoEntrega === 'retirada') {
+            if (!selectedLocal) {
+                newErrors.localRetirada = 'Por favor, selecione um local para retirada.';
+            }
+        }
+
+        if (!tipoEntrega) {
+            newErrors.tipoEntrega = 'Por favor, selecione uma opção: Entrega ou Retirada.';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
+        setErrors({});
+
+        if (tipoEntrega === 'entrega' && frete === 0) {
+            if (metodosFrete.pac || metodosFrete.sedex) {
+                setModalVisible(true);
+                return;
+            } else {
+                setSnackbar({ open: true, message: 'Nenhum método de entrega disponível para o CEP informado.', severity: 'warning' });
+                return;
+            }
+        }
+
+        handleInputChange({ target: { name: 'frete', value: frete.toFixed(2) } });
+        nextStep();
+    };
+
+    const selectedInfo = locaisRetirada.find((local) => local.id === selectedLocal);
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box 
-                component="form" 
-                noValidate 
-                autoComplete="off" 
-                sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: 2, 
-                    maxWidth: '600px' 
-                }}
-            >
-                <FormControl error={!!errors.tipoEntrega}>
-                    <FormLabel>Tipo de Entrega</FormLabel>
-                    <RadioGroup row {...register('tipoEntrega')}>
+            <Box component="form" noValidate autoComplete="off" sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '600px' }}>
+                <FormControl component="fieldset" sx={{ mb: 3 }} error={!!errors.tipoEntrega}>
+                    <RadioGroup
+                        name="tipoEntrega"
+                        value={tipoEntrega}
+                        onChange={handleOptionChange}
+                        sx={{ flexDirection: 'row' }}
+                    >
                         <FormControlLabel value="entrega" control={<Radio />} label="Entrega" />
                         <FormControlLabel value="retirada" control={<Radio />} label="Retirada" />
                     </RadioGroup>
-                    <FormHelperText>{errors.tipoEntrega?.message}</FormHelperText>
+                    {errors.tipoEntrega && (
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                            {errors.tipoEntrega}
+                        </Typography>
+                    )}
                 </FormControl>
 
                 {tipoEntrega === 'entrega' && (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
                             label="CEP"
-                            {...register('cep')}
+                            name="cep"
+                            value={formData.cep || ''}
+                            onChange={handleCepChange}
                             onBlur={handleCepBlur}
-                            error={!!errors.cep}
-                            helperText={errors.cep?.message || (loadingCep ? 'Buscando CEP...' : '')}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.cep}
+                            helperText={errors.cep || (loadingCep ? 'Buscando CEP...' : '')}
                         />
-
                         <TextField
                             label="Endereço"
-                            {...register('endereco')}
+                            name="endereco"
+                            value={formData.endereco || ''}
+                            onChange={handleInputChange}
                             disabled={disabledFields.endereco}
-                            error={!!errors.endereco}
-                            helperText={errors.endereco?.message}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.endereco}
+                            helperText={errors.endereco}
                         />
-
                         <TextField
                             label="Número"
-                            {...register('numero')}
-                            error={!!errors.numero}
-                            helperText={errors.numero?.message}
+                            name="numero"
+                            value={formData.numero || ''}
+                            onChange={handleInputChange}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.numero}
+                            helperText={errors.numero}
                         />
-
                         <TextField
                             label="Complemento (opcional)"
-                            {...register('complemento')}
+                            name="complemento"
+                            value={formData.complemento || ''}
+                            onChange={handleInputChange}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
                         />
-
                         <TextField
                             label="Bairro"
-                            {...register('bairro')}
+                            name="bairro"
+                            value={formData.bairro || ''}
+                            onChange={handleInputChange}
                             disabled={disabledFields.bairro}
-                            error={!!errors.bairro}
-                            helperText={errors.bairro?.message}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.bairro}
+                            helperText={errors.bairro}
                         />
-
                         <TextField
                             label="Cidade"
-                            {...register('cidade')}
+                            name="cidade"
+                            value={formData.cidade || ''}
+                            onChange={handleInputChange}
                             disabled={disabledFields.cidade}
-                            error={!!errors.cidade}
-                            helperText={errors.cidade?.message}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.cidade}
+                            helperText={errors.cidade}
                         />
-
                         <TextField
                             label="Estado"
-                            {...register('estado')}
+                            name="estado"
                             select
+                            value={formData.estado || ''}
+                            onChange={handleInputChange}
                             disabled={disabledFields.estado}
-                            error={!!errors.estado}
-                            helperText={errors.estado?.message}
                             fullWidth
                             size="small"
                             InputLabelProps={{ shrink: true }}
+                            error={!!errors.estado}
+                            helperText={errors.estado}
                         >
+                            <MenuItem value="" disabled>
+                                Selecione o Estado
+                            </MenuItem>
                             {estadosBrasil.map((estado) => (
                                 <MenuItem key={estado} value={estado}>
                                     {estado}
                                 </MenuItem>
                             ))}
                         </TextField>
+                    </Box>
+                )}
 
-                        {modalVisible && (
-                            <Box
-                                sx={{
-                                    position: 'fixed',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    bgcolor: 'rgba(0, 0, 0, 0.5)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    zIndex: 1300,
+                {modalVisible && (
+                    <Box
+                        sx={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            bgcolor: 'rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1300,
+}}
+                    >
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            Escolha o tipo de entrega
+                        </Typography>
+                        {metodosFrete.pac !== null && (
+                            <Button
+                                variant="contained"
+                                sx={{ mb: 1, width: '100%' }}
+                                onClick={() => {
+                                    setValue('frete', metodosFrete.pac);
+                                    setValue('tipoFrete', 'PAC');
+                                    setModalVisible(false);
                                 }}
                             >
-                                <Box
-                                    sx={{
-                                        width: '300px',
-                                        bgcolor: 'white',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        textAlign: 'center',
-                                    }}
-                                >
-                                    <Typography variant="h6" sx={{ mb: 2 }}>
-                                        Escolha o tipo de entrega
-                                    </Typography>
-                                    {metodosFrete.pac !== null && (
-                                        <Button
-                                            variant="contained"
-                                            sx={{ mb: 1, width: '100%' }}
-                                            onClick={() => {
-                                                setValue('frete', metodosFrete.pac);
-                                                setValue('tipoFrete', 'PAC');
-                                                setModalVisible(false);
-                                            }}
-                                        >
-                                            PAC - R$ {metodosFrete.pac.toFixed(2)}
-                                        </Button>
-                                    )}
-                                    {metodosFrete.sedex !== null && (
-                                        <Button
-                                            variant="contained"
-                                            color="secondary"
-                                            sx={{ width: '100%' }}
-                                            onClick={() => {
-                                                setValue('frete', metodosFrete.sedex);
-                                                setValue('tipoFrete', 'SEDEX');
-                                                setModalVisible(false);
-                                            }}
-                                        >
-                                            SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
-                                        </Button>
-                                    )}
-                                </Box>
-                            </Box>
+                                PAC - R$ {metodosFrete.pac.toFixed(2)}
+                            </Button>
+                        )}
+                        {metodosFrete.sedex !== null && (
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                sx={{ width: '100%' }}
+                                onClick={() => {
+                                    setValue('frete', metodosFrete.sedex);
+                                    setValue('tipoFrete', 'SEDEX');
+                                    setModalVisible(false);
+                                }}
+                            >
+                                SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
+                            </Button>
                         )}
                     </Box>
-                )}
-
-                {tipoEntrega === 'retirada' && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <TextField
-                            label="Local para Retirada"
-                            {...register('localRetirada')}
-                            select
-                            error={!!errors.localRetirada}
-                            helperText={errors.localRetirada?.message}
-                            fullWidth
-                            size="small"
-                            InputLabelProps={{ shrink: true }}
-                        >
-                            <MenuItem value="">Selecione um Local</MenuItem>
-                            {locaisRetirada.map((local) => (
-                                <MenuItem key={local.id} value={local.id}>
-                                    {local.nome}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-
-                        {selectedInfo && (
-                            <Box sx={{ mt: 2, p: 2, bgcolor: '#f1f8e9', borderRadius: 2 }}>
-                                <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                                    📍 {selectedInfo.nome}
-                                </Typography>
-                                <Typography variant="body2" gutterBottom>
-                                    {selectedInfo.endereco}
-                                </Typography>
-                                <Typography variant="body2" gutterBottom>
-                                    🗓️ <b>Segunda à Sexta:</b> {selectedInfo.horarios.semana}
-                                </Typography>
-                                <Typography variant="body2" gutterBottom>
-                                    🗓️ <b>Sábado:</b> {selectedInfo.horarios.sabado}
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                                    {selectedInfo.horarios.feriados}
-                                </Typography>
-                                <Button
-                                    variant="outlined"
-                                    sx={{
-                                        mt: 2,
-                                        color: '#00695c',
-                                        borderColor: '#00695c',
-                                        textTransform: 'none',
-                                        ':hover': { bgcolor: '#004d40', color: '#fff' },
-                                    }}
-                                    onClick={() =>
-                                        window.open(
-                                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                                `${selectedInfo.loja}, ${selectedInfo.endereco}`
-                                            )}&query_place_id=${selectedInfo.coordenadas.lat},${selectedInfo.coordenadas.lng}`
-                                        )
-                                    }
-                                >
-                                    Ver no Google Maps
-                                </Button>
-                            </Box>
-                        )}
-                    </Box>
-                )}
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-                    <Button
-                        variant="outlined"
-                        onClick={prevStep}
-                        sx={{ color: '#00695c', borderColor: '#00695c' }}
-                    >
-                        Voltar
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={nextStep}
-                        sx={{
-                            bgcolor: '#00695c',
-                            ':hover': { bgcolor: '#004d40' },
-                        }}
-                    >
-                        Salvar e avançar
-                    </Button>
                 </Box>
-            </Box>
+            )}
 
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={6000}
-                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
-                <Alert
-                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                    severity={snackbar.severity}
-                    sx={{ width: '100%' }}
+            {tipoEntrega === 'retirada' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                        label="Local para Retirada"
+                        name="localRetirada"
+                        select
+                        value={selectedLocal || ''}
+                        onChange={(e) => {
+                            setValue('localRetirada', e.target.value);
+                        }}
+                        error={!!errors.localRetirada}
+                        helperText={errors.localRetirada?.message}
+                        fullWidth
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                    >
+                        <MenuItem value="">Selecione um Local</MenuItem>
+                        {locaisRetirada.map((local) => (
+                            <MenuItem key={local.id} value={local.id}>
+                                {local.nome}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
+                    {selectedInfo && (
+                        <Box sx={{ mt: 2, p: 2, bgcolor: '#f1f8e9', borderRadius: 2 }}>
+                            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                                📍 {selectedInfo.nome}
+                            </Typography>
+                            <Typography variant="body2" gutterBottom>
+                                {selectedInfo.endereco}
+                            </Typography>
+                            <Typography variant="body2" gutterBottom>
+                                🗓️ <b>Segunda à Sexta:</b> {selectedInfo.horarios.semana}
+                            </Typography>
+                            <Typography variant="body2" gutterBottom>
+                                🗓️ <b>Sábado:</b> {selectedInfo.horarios.sabado}
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                                {selectedInfo.horarios.feriados}
+                            </Typography>
+                            <Button
+                                variant="outlined"
+                                sx={{
+                                    mt: 2,
+                                    color: '#00695c',
+                                    borderColor: '#00695c',
+                                    textTransform: 'none',
+                                    ':hover': { bgcolor: '#004d40', color: '#fff' },
+                                }}
+                                onClick={() =>
+                                    window.open(
+                                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                            `${selectedInfo.loja}, ${selectedInfo.endereco}`
+                                        )}&query_place_id=${selectedInfo.coordenadas.lat},${selectedInfo.coordenadas.lng}`
+                                    )
+                                }
+                            >
+                                Ver no Google Maps
+                            </Button>
+                        </Box>
+                    )}
+                </Box>
+            )}
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+                <Button
+                    variant="outlined"
+                    onClick={prevStep}
+                    sx={{ color: '#00695c', borderColor: '#00695c' }}
                 >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+                    Voltar
+                </Button>
+                <Button
+                    variant="contained"
+                    onClick={() => {
+                        // Add validation logic here
+                        const newErrors = {};
+
+                        if (!tipoEntrega) {
+                            newErrors.tipoEntrega = 'Por favor, selecione uma opção: Entrega ou Retirada.';
+                        }
+
+                        if (tipoEntrega === 'entrega') {
+                            if (!getValues('cep')) newErrors.cep = 'CEP é obrigatório.';
+                            if (!getValues('endereco')) newErrors.endereco = 'Endereço é obrigatório.';
+                            if (!getValues('numero')) newErrors.numero = 'Número é obrigatório.';
+                            if (!getValues('bairro')) newErrors.bairro = 'Bairro é obrigatório.';
+                            if (!getValues('cidade')) newErrors.cidade = 'Cidade é obrigatória.';
+                            if (!getValues('estado')) newErrors.estado = 'Estado é obrigatório.';
+                        }
+
+                        if (tipoEntrega === 'retirada') {
+                            if (!getValues('localRetirada')) {
+                                newErrors.localRetirada = 'Por favor, selecione um local para retirada.';
+                            }
+                        }
+
+                        if (Object.keys(newErrors).length > 0) {
+                            Object.entries(newErrors).forEach(([field, message]) => {
+                                // Set errors for each field
+                                setValue(field, getValues(field), { 
+                                    shouldValidate: true, 
+                                    shouldDirty: true, 
+                                    shouldTouch: true 
+                                });
+                            });
+                            return;
+                        }
+
+                        // If no errors, proceed to next step
+                        if (tipoEntrega === 'retirada') {
+                            // Set frete to 0 for pickup
+                            setValue('frete', '0.00');
+                        }
+
+                        nextStep();
+                    }}
+                    sx={{
+                        bgcolor: '#00695c',
+                        ':hover': { bgcolor: '#004d40' },
+                    }}
+                >
+                    Salvar e avançar
+                </Button>
+            </Box>
         </Box>
-    );
+
+        <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+            <Alert
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                severity={snackbar.severity}
+                sx={{ width: '100%' }}
+            >
+                {snackbar.message}
+            </Alert>
+        </Snackbar>
+    </Box>
+);
 };
 
 export default Step2;
