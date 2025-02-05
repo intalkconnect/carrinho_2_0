@@ -32,11 +32,18 @@ import LogoCentro from '../assets/logo1.png';
 // Schema de validação
 const schema = yup.object().shape({
     nomeCompleto: yup.string().required('Nome completo é obrigatório'),
-    cpf: yup.string().required('CPF é obrigatório').min(11, 'CPF inválido'),
+    cpf: yup.string()
+        .required('CPF é obrigatório')
+        .min(11, 'CPF deve ter 11 dígitos')
+        .max(14, 'CPF inválido'),
     rg: yup.string(),
-    celular: yup.string().required('Celular é obrigatório'),
-    email: yup.string().email('Email inválido').required('Email é obrigatório'),
-    tipoEntrega: yup.string().required('Selecione o tipo de entrega'),
+    celular: yup.string()
+        .required('Celular é obrigatório')
+        .min(10, 'Número de celular inválido'),
+    email: yup.string()
+        .email('Email inválido')
+        .required('Email é obrigatório'),
+    tipoEntrega: yup.string(),
     tipoFrete: yup.string().when('tipoEntrega', {
         is: 'entrega',
         then: yup.string().required('Selecione o tipo de frete')
@@ -69,8 +76,8 @@ const schema = yup.object().shape({
         is: 'retirada',
         then: yup.string().required('Local de retirada é obrigatório')
     }),
-    formaPagamento: yup.string().required('Selecione a forma de pagamento')
-});
+    formaPagamento: yup.string()
+}).required();
 
 const Checkout = () => {
     const { orcamentos, updateTotalValue, status } = useOrcamentos();
@@ -93,7 +100,15 @@ const Checkout = () => {
             tipoEntrega: '',
             tipoFrete: '',
             frete: 0,
-            formaPagamento: 'pix'
+            formaPagamento: 'pix',
+            endereco: '',
+            numero: '',
+            complemento: '',
+            bairro: '',
+            cidade: '',
+            estado: '',
+            cep: '',
+            localRetirada: ''
         }
     });
 
@@ -121,7 +136,6 @@ const Checkout = () => {
         };
     }, []);
 
-    // Cálculo do valor total
     useEffect(() => {
         const calculateTotal = () => {
             const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
@@ -204,6 +218,7 @@ const Checkout = () => {
                     message: 'Pedido finalizado com sucesso!',
                     severity: 'success'
                 });
+                // Redirecionar ou limpar o formulário após sucesso
             } else {
                 throw new Error('Erro ao finalizar pedido');
             }
@@ -216,7 +231,6 @@ const Checkout = () => {
         }
     };
 
-    // Loading state
     if (!status) {
         return (
             <Box sx={{
@@ -240,7 +254,6 @@ const Checkout = () => {
         );
     }
 
-    // Status checks
     if (status === 'expired' || status === 'confirmed' || (status !== 'pending' && status !== 'confirmed' && status !== 'expired')) {
         return (
             <Box sx={{
@@ -329,8 +342,55 @@ const Checkout = () => {
                                 </AccordionSummary>
                                 <AccordionDetails>
                                     <Step1
-                                        nextStep={() => {
-                                            const isValid = methods.trigger(['nomeCompleto', 'cpf', 'celular', 'email']);
+                                        nextStep={async () => {
+                                            const isValid = await methods.trigger(['nomeCompleto', 'cpf', 'celular', 'email']);
+                                            if (isValid) {
+                                                setIsStep1Completed(true);
+                                                setExpanded('step2');
+                                            }
+                                        }}
+                                    />
+                                </AccordionDetails>
+                            </Accordion>
+
+                            <Accordion
+                                expanded={expanded === 'step2'}
+                                onChange={handleAccordionChange('step2')}
+                                disabled={!isStep1Completed}
+                                sx={{
+                                    marginBottom: 2,
+                                    border: '1px solid #ddd',
+                                    borderRadius: 2,
+                                }}
+                            >
+                                <AccordionSummary
+                                    expandIcon={<ExpandMoreIcon sx={{ color: '#00695c' }} />}
+                                    sx={{ bgcolor: expanded === 'step2' ? '#e8f5e9' : '#ffffff' }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        {isStep2Completed ? (
+                                            <CheckCircleIcon sx={{ color: '#81c784' }} />
+                                        ) : (
+                                            <RadioButtonUncheckedIcon sx={{ color: '#00695c' }} />
+                                        )}
+                                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#00695c' }}>
+                                            Entrega ou Retirada
+                                        </Typography>
+                                    </Box>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Step2
+                                        nextStep={async () => {
+                                            const tipoEntrega = methods.getValues('tipoEntrega');
+                                            let fieldsToValidate = ['tipoEntrega'];
+                                            
+                                            if (tipoEntrega === 'entrega') {
+                                                fieldsToValidate.push('endereco', 'numero', 'bairro', 'cidade', 'estado', 'cep', 'tipoFrete');
+                                            } else if (tipoEntrega === 'retirada') {
+                                                fieldsToValidate.push('localRetirada');
+                                            }
+                                            
+                                            const isValid = await methods.trigger(fieldsToValidate);
                                             if (isValid) {
                                                 setIsStep2Completed(true);
                                                 setExpanded('step3');
@@ -401,4 +461,4 @@ const Checkout = () => {
     );
 };
 
-export default Checkout
+export default Checkout;
