@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useFormContext } from 'react-hook-form';
+import React, { useState } from 'react';
 import {
   Box,
   Radio,
@@ -54,17 +53,9 @@ const locaisRetirada = [
   },
 ];
 
-const estadosBrasil = [
-  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará',
-  'Distrito Federal', 'Espírito Santo', 'Goiás', 'Maranhão',
-  'Mato Grosso', 'Mato Grosso do Sul', 'Minas Gerais', 'Pará',
-  'Paraíba', 'Paraná', 'Pernambuco', 'Piauí', 'Rio de Janeiro',
-  'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia',
-  'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins',
-];
-
-const Step2 = ({ nextStep }) => {
-  const { register, setValue, watch, formState: { errors }, trigger } = useFormContext();
+const Step2 = ({ formData, handleInputChange, nextStep }) => {
+  const [tipoEntrega, setTipoEntrega] = useState(formData.tipoEntrega || '');
+  const [selectedLocal, setSelectedLocal] = useState('');
   const [loadingCep, setLoadingCep] = useState(false);
   const [frete, setFrete] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
@@ -75,35 +66,49 @@ const Step2 = ({ nextStep }) => {
     cidade: true,
     estado: true,
   });
+  const [errors, setErrors] = useState({});
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'info',
   });
 
-  const tipoEntrega = watch('tipoEntrega');
-  const selectedLocal = watch('localRetirada');
-
-  useEffect(() => {
-    if (tipoEntrega === 'retirada' && selectedLocal) {
-      setValue('tipoEntrega', 'retirada', { shouldValidate: true });
-    }
-  }, [tipoEntrega, selectedLocal, setValue]);
-
   const handleSnackbarClose = () => {
     setSnackbar((prev) => ({ ...prev, open: false }));
+    const clearedFields = {
+      cep: '',
+      endereco: '',
+      numero: '',
+      complemento: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
+    };
+    Object.keys(clearedFields).forEach((key) => {
+      handleInputChange({ target: { name: key, value: clearedFields[key] } });
+    });
   };
 
   const handleOptionChange = (e) => {
     const value = e.target.value;
-    setValue('tipoEntrega', value, { shouldValidate: true });
+    setTipoEntrega(value);
+    handleInputChange(e);
 
     if (value === 'retirada') {
       setFrete(0);
-      setValue('frete', '0.00');
-      // Limpar campos de entrega
-      ['cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado'].forEach(field => {
-        setValue(field, '', { shouldValidate: true });
+      handleInputChange({ target: { name: 'frete', value: '0.00' } });
+      setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
+      const clearedFields = {
+        cep: '',
+        endereco: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+      };
+      Object.keys(clearedFields).forEach((key) => {
+        handleInputChange({ target: { name: key, value: clearedFields[key] } });
       });
       setDisabledFields({
         endereco: true,
@@ -111,22 +116,24 @@ const Step2 = ({ nextStep }) => {
         cidade: true,
         estado: true,
       });
-    } else {
-      // Se mudar para entrega, limpar local de retirada
-      setValue('localRetirada', '', { shouldValidate: true });
+    }
+    if (value === 'entrega') {
+      setSelectedLocal('');
     }
   };
 
-  const handleLocalChange = (e) => {
-    const value = e.target.value;
-    setValue('localRetirada', value, { shouldValidate: true });
-    // Garantir que tipoEntrega permaneça como 'retirada'
-    setValue('tipoEntrega', 'retirada', { shouldValidate: true });
+  const handleLocalChange = (event) => {
+    const selectedId = event.target.value;
+    setSelectedLocal(selectedId);
+    handleInputChange({ target: { name: 'localRetirada', value: selectedId } });
+
+    if (errors.localRetirada) {
+      setErrors((prevErrors) => ({ ...prevErrors, localRetirada: null }));
+    }
   };
 
   const handleCepBlur = async () => {
-    const cep = watch('cep');
-    if (!cep || cep.length !== 8) {
+    if (!formData.cep || formData.cep.length !== 8) {
       setSnackbar({ open: true, message: 'CEP inválido. Certifique-se de que possui 8 dígitos.', severity: 'error' });
       return;
     }
@@ -135,14 +142,15 @@ const Step2 = ({ nextStep }) => {
 
     try {
       setLoadingCep(true);
-      const data = await consultarCEP(cep);
+
+      const data = await consultarCEP(formData.cep);
 
       if (isCancelled) return;
 
-      setValue('endereco', data.logradouro || '');
-      setValue('bairro', data.bairro || '');
-      setValue('cidade', data.localidade || '');
-      setValue('estado', data.estado || '');
+      handleInputChange({ target: { name: 'endereco', value: data.logradouro || '' } });
+      handleInputChange({ target: { name: 'bairro', value: data.bairro || '' } });
+      handleInputChange({ target: { name: 'cidade', value: data.localidade || '' } });
+      handleInputChange({ target: { name: 'estado', value: data.estado || '' } });
 
       setDisabledFields({
         endereco: !!data.logradouro,
@@ -159,7 +167,7 @@ const Step2 = ({ nextStep }) => {
           pac: data.pac ? parseFloat(data.pac) : null,
           sedex: data.sedex ? parseFloat(data.sedex) : null,
         });
-        setValue('metodosFrete', { pac: data.pac, sedex: data.sedex });
+        handleInputChange({ target: { name: 'metodosFrete', value: metodosFrete } });
       } else {
         setFrete(0);
       }
@@ -181,51 +189,90 @@ const Step2 = ({ nextStep }) => {
 
   const handleCepChange = (e) => {
     const { value } = e.target;
-    setValue('cep', value, { shouldValidate: true });
+    handleInputChange({ target: { name: 'cep', value } });
 
     if (value.length === 8) {
       setFrete(0);
       setModalVisible(false);
     }
+
+    if (errors.cep) {
+      setErrors((prev) => ({ ...prev, cep: null }));
+    }
   };
 
-  const handleNext = async () => {
-    let isValid = true;
+  const estadosBrasil = [
+    'Acre',
+    'Alagoas',
+    'Amapá',
+    'Amazonas',
+    'Bahia',
+    'Ceará',
+    'Distrito Federal',
+    'Espírito Santo',
+    'Goiás',
+    'Maranhão',
+    'Mato Grosso',
+    'Mato Grosso do Sul',
+    'Minas Gerais',
+    'Pará',
+    'Paraíba',
+    'Paraná',
+    'Pernambuco',
+    'Piauí',
+    'Rio de Janeiro',
+    'Rio Grande do Norte',
+    'Rio Grande do Sul',
+    'Rondônia',
+    'Roraima',
+    'Santa Catarina',
+    'São Paulo',
+    'Sergipe',
+    'Tocantins',
+  ];
+
+  const handleNext = () => {
+    const newErrors = {};
+
     if (tipoEntrega === 'entrega') {
-      isValid = await trigger(['cep', 'endereco', 'numero', 'bairro', 'cidade', 'estado']);
+      if (!formData.cep || formData.cep.length !== 8) {
+        newErrors.cep = 'CEP é obrigatório e deve conter 8 dígitos.';
+      }
+      if (!formData.endereco) newErrors.endereco = 'Endereço é obrigatório.';
+      if (!formData.numero) newErrors.numero = 'Número é obrigatório.';
+      if (!formData.bairro) newErrors.bairro = 'Bairro é obrigatório.';
+      if (!formData.cidade) newErrors.cidade = 'Cidade é obrigatória.';
+      if (!formData.estado) newErrors.estado = 'Estado é obrigatório.';
+    }
 
-      if (!isValid) {
-        return;
+    if (tipoEntrega === 'retirada') {
+      if (!selectedLocal) {
+        newErrors.localRetirada = 'Por favor, selecione um local para retirada.';
       }
+    }
 
-      if (frete === 0) {
-        if (metodosFrete.pac || metodosFrete.sedex) {
-          setModalVisible(true);
-          return;
-        } else {
-          setSnackbar({ 
-            open: true, 
-            message: 'Nenhum método de entrega disponível para o CEP informado.', 
-            severity: 'warning' 
-          });
-          return;
-        }
-      }
-    } else if (tipoEntrega === 'retirada') {
-      isValid = await trigger(['localRetirada']);
-      if (!isValid) {
-        return;
-      }
-    } else {
-      setSnackbar({
-        open: true,
-        message: 'Selecione uma opção de entrega ou retirada.',
-        severity: 'warning'
-      });
+    if (!tipoEntrega) {
+      newErrors.tipoEntrega = 'Por favor, selecione uma opção: Entrega ou Retirada.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
-    setValue('frete', frete.toFixed(2));
+    setErrors({});
+
+    if (tipoEntrega === 'entrega' && frete === 0) {
+      if (metodosFrete.pac || metodosFrete.sedex) {
+        setModalVisible(true);
+        return;
+      } else {
+        setSnackbar({ open: true, message: 'Nenhum método de entrega disponível para o CEP informado.', severity: 'warning' });
+        return;
+      }
+    }
+
+    handleInputChange({ target: { name: 'frete', value: frete.toFixed(2) } });
     nextStep();
   };
 
@@ -238,7 +285,7 @@ const Step2 = ({ nextStep }) => {
         <FormControl component="fieldset" sx={{ mb: 3 }} error={!!errors.tipoEntrega}>
           <RadioGroup
             name="tipoEntrega"
-            value={tipoEntrega || ''}
+            value={tipoEntrega}
             onChange={handleOptionChange}
             sx={{ flexDirection: 'row', gap: 2, mt: 1 }}
           >
@@ -247,7 +294,7 @@ const Step2 = ({ nextStep }) => {
           </RadioGroup>
           {errors.tipoEntrega && (
             <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-              {errors.tipoEntrega.message}
+              {errors.tipoEntrega}
             </Typography>
           )}
         </FormControl>
@@ -256,68 +303,83 @@ const Step2 = ({ nextStep }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
               label="CEP"
-              {...register('cep')}
-              onChange={handleCepChange}
+              name="cep"
+              value={formData.cep || ''}
+              onChange={(e) => {
+                handleCepChange(e);
+                if (errors.cep) {
+                  setErrors((prev) => ({ ...prev, cep: null }));
+                }
+              }}
               onBlur={handleCepBlur}
-              error={!!errors.cep}
-              helperText={errors.cep?.message || (loadingCep ? 'Buscando CEP...' : '')}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
+              error={!!errors.cep}
+              helperText={errors.cep || (loadingCep ? 'Buscando CEP...' : '')}
             />
             <TextField
               label="Endereço"
-              {...register('endereco')}
+              name="endereco"
+              value={formData.endereco || ''}
+              onChange={handleInputChange}
               disabled={disabledFields.endereco}
-              error={!!errors.endereco}
-              helperText={errors.endereco?.message}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="Número"
-              {...register('numero')}
-              error={!!errors.numero}
-              helperText={errors.numero?.message}
+              name="numero"
+              value={formData.numero || ''}
+              onChange={(e) => {
+                handleInputChange(e);
+                if (errors.numero) {
+                  setErrors((prev) => ({ ...prev, numero: null }));
+                }
+              }}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
+              error={!!errors.numero}
+              helperText={errors.numero}
             />
             <TextField
               label="Complemento (opcional)"
-              {...register('complemento')}
+              name="complemento"
+              value={formData.complemento || ''}
+              onChange={handleInputChange}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="Bairro"
-              {...register('bairro')}
+              name="bairro"
+              value={formData.bairro || ''}
+              onChange={handleInputChange}
               disabled={disabledFields.bairro}
-              error={!!errors.bairro}
-              helperText={errors.bairro?.message}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="Cidade"
-              {...register('cidade')}
+              name="cidade"
+              value={formData.cidade || ''}
+              onChange={handleInputChange}
               disabled={disabledFields.cidade}
-              error={!!errors.cidade}
-              helperText={errors.cidade?.message}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="Estado"
-              {...register('estado')}
+              name="estado"
               select
+              value={formData.estado || ''}
+              onChange={handleInputChange}
               disabled={disabledFields.estado}
-              error={!!errors.estado}
-              helperText={errors.estado?.message}
               fullWidth
               size="small"
               InputLabelProps={{ shrink: true }}
@@ -367,8 +429,8 @@ const Step2 = ({ nextStep }) => {
                   sx={{ mb: 1, width: '100%' }}
                   onClick={() => {
                     setFrete(metodosFrete.pac);
-                    setValue('frete', metodosFrete.pac.toFixed(2));
-                    setValue('tipoFrete', 'PAC');
+                    handleInputChange({ target: { name: 'frete', value: metodosFrete.pac.toFixed(2) } });
+                    handleInputChange({ target: { name: 'tipoFrete', value: 'PAC' } });
                     setModalVisible(false);
                     nextStep();
                   }}
@@ -383,8 +445,8 @@ const Step2 = ({ nextStep }) => {
                   sx={{ width: '100%' }}
                   onClick={() => {
                     setFrete(metodosFrete.sedex);
-                    setValue('frete', metodosFrete.sedex.toFixed(2));
-                    setValue('tipoFrete', 'SEDEX');
+                    handleInputChange({ target: { name: 'frete', value: metodosFrete.sedex.toFixed(2) } });
+                    handleInputChange({ target: { name: 'tipoFrete', value: 'SEDEX' } });
                     setModalVisible(false);
                     nextStep();
                   }}
@@ -400,13 +462,14 @@ const Step2 = ({ nextStep }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
               label="Local para Retirada"
+              name="localRetirada"
               select
-              value={selectedLocal || ''}
+              value={selectedLocal}
               onChange={handleLocalChange}
-              error={!!errors.localRetirada}
-              helperText={errors.localRetirada?.message}
               fullWidth
               size="small"
+              error={!!errors.localRetirada}
+              helperText={errors.localRetirada}
               InputLabelProps={{ shrink: true }}
             >
               <MenuItem value="">Selecione um Local</MenuItem>
@@ -458,16 +521,16 @@ const Step2 = ({ nextStep }) => {
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            sx={{
-              alignSelf: 'flex-end',
-              marginTop: 2,
-              bgcolor: '#00695c',
-              ':hover': { bgcolor: '#004d40' },
-            }}
-          >
+          <Button  variant="contained"
+                    color="primary"
+                    onClick={handleNext}
+                    sx={{
+                        alignSelf: 'flex-end',
+                        marginTop: 2,
+                        bgcolor: '#00695c',
+                        ':hover': { bgcolor: '#004d40' },
+                    }}
+                >
             Salvar e avançar
           </Button>
         </Box>
