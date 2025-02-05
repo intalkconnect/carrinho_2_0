@@ -160,9 +160,14 @@ const Step2 = ({ nextStep, prevStep }) => {
                         maxWidth: '600px' 
                     }}
                 >
-                    <FormControl error={!!errors.tipoEntrega}>
+                    <FormControl error={!!errors.tipoEntrega} required>
                         <FormLabel>Tipo de Entrega</FormLabel>
-                        <RadioGroup row {...register('tipoEntrega')}>
+                        <RadioGroup 
+                            row 
+                            {...register('tipoEntrega', { 
+                                required: 'Selecione o tipo de entrega' 
+                            })}
+                        >
                             <FormControlLabel value="entrega" control={<Radio />} label="Entrega" />
                             <FormControlLabel value="retirada" control={<Radio />} label="Retirada" />
                         </RadioGroup>
@@ -173,7 +178,13 @@ const Step2 = ({ nextStep, prevStep }) => {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <TextField
                                 label="CEP"
-                                {...register('cep')}
+                                {...register('cep', {
+                                    required: 'CEP é obrigatório',
+                                    pattern: {
+                                        value: /^\d{8}$/,
+                                        message: 'CEP inválido'
+                                    }
+                                })}
                                 onBlur={handleCepBlur}
                                 error={!!errors.cep}
                                 helperText={errors.cep?.message || (loadingCep ? 'Buscando CEP...' : '')}
@@ -184,7 +195,9 @@ const Step2 = ({ nextStep, prevStep }) => {
 
                             <TextField
                                 label="Endereço"
-                                {...register('endereco')}
+                                {...register('endereco', { 
+                                    required: 'Endereço é obrigatório' 
+                                })}
                                 disabled={disabledFields.endereco}
                                 error={!!errors.endereco}
                                 helperText={errors.endereco?.message}
@@ -195,7 +208,9 @@ const Step2 = ({ nextStep, prevStep }) => {
 
                             <TextField
                                 label="Número"
-                                {...register('numero')}
+                                {...register('numero', { 
+                                    required: 'Número é obrigatório' 
+                                })}
                                 error={!!errors.numero}
                                 helperText={errors.numero?.message}
                                 fullWidth
@@ -213,7 +228,9 @@ const Step2 = ({ nextStep, prevStep }) => {
 
                             <TextField
                                 label="Bairro"
-                                {...register('bairro')}
+                                {...register('bairro', { 
+                                    required: 'Bairro é obrigatório' 
+                                })}
                                 disabled={disabledFields.bairro}
                                 error={!!errors.bairro}
                                 helperText={errors.bairro?.message}
@@ -224,7 +241,9 @@ const Step2 = ({ nextStep, prevStep }) => {
 
                             <TextField
                                 label="Cidade"
-                                {...register('cidade')}
+                                {...register('cidade', { 
+                                    required: 'Cidade é obrigatória' 
+                                })}
                                 disabled={disabledFields.cidade}
                                 error={!!errors.cidade}
                                 helperText={errors.cidade?.message}
@@ -235,7 +254,9 @@ const Step2 = ({ nextStep, prevStep }) => {
 
                             <TextField
                                 label="Estado"
-                                {...register('estado')}
+                                {...register('estado', { 
+                                    required: 'Estado é obrigatório' 
+                                })}
                                 select
                                 disabled={disabledFields.estado}
                                 error={!!errors.estado}
@@ -317,7 +338,9 @@ const Step2 = ({ nextStep, prevStep }) => {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <TextField
                                 label="Local para Retirada"
-                                {...register('localRetirada')}
+                                {...register('localRetirada', {
+                                    required: 'Selecione um local de retirada'
+                                })}
                                 select
                                 error={!!errors.localRetirada}
                                 helperText={errors.localRetirada?.message}
@@ -363,7 +386,7 @@ const Step2 = ({ nextStep, prevStep }) => {
                                             window.open(
                                                 `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                                                     `${selectedInfo.loja}, ${selectedInfo.endereco}`
-                                                )}&query_place_id=${selectedInfo.coordenadas.lat},${selectedInfo.coordenadas.lng}`
+                                                )}&query_place=${selectedInfo.coordenadas.lat},${selectedInfo.coordenadas.lng}`
                                             )
                                         }
                                     >
@@ -383,38 +406,58 @@ const Step2 = ({ nextStep, prevStep }) => {
                             Voltar
                         </Button>
                         <Button
-                           variant="contained"
-                            onClick={async () => {
-                                // Trigger validation for all fields
-                                const result = await trigger();
+                            variant="contained"
+                            onClick={() => {
+                                // Validate the form
+                                if (!tipoEntrega) {
+                                    setValue('tipoEntrega', '', { shouldValidate: true });
+                                    return;
+                                }
 
-                                if (result) {
-                                    // If validation passes
-                                    if (tipoEntrega === 'retirada') {
-                                        // Set frete to 0 for pickup
-                                        setValue('frete', '0.00');
+                                if (tipoEntrega === 'retirada') {
+                                    // Validate local de retirada
+                                    if (!selectedLocal) {
+                                        setValue('localRetirada', '', { shouldValidate: true });
+                                        return;
                                     }
+                                    
+                                    // Set frete to 0 for pickup
+                                    setValue('frete', '0.00');
+                                    nextStep();
+                                }
 
-                                    // Additional checks for specific delivery options
-                                    if (tipoEntrega === 'entrega') {
-                                        // Check if shipping method is selected for delivery
+                                if (tipoEntrega === 'entrega') {
+                                    // Trigger validation for all delivery fields
+                                    const fields = [
+                                        'cep', 'endereco', 'numero', 'bairro', 
+                                        'cidade', 'estado'
+                                    ];
+
+                                    const isValid = fields.every(field => {
+                                        const value = getValues(field);
+                                        if (!value) {
+                                            setValue(field, '', { shouldValidate: true });
+                                            return false;
+                                        }
+                                        return true;
+                                    });
+
+                                    // Check shipping method for delivery
+                                    if (isValid) {
                                         if (!getValues('frete')) {
                                             if (metodosFrete.pac || metodosFrete.sedex) {
                                                 setModalVisible(true);
-                                                return;
                                             } else {
                                                 setSnackbar({
                                                     open: true,
                                                     message: 'Nenhum método de entrega disponível para o CEP informado.',
                                                     severity: 'warning'
                                                 });
-                                                return;
                                             }
+                                        } else {
+                                            nextStep();
                                         }
                                     }
-
-                                    // Proceed to next step
-                                    nextStep();
                                 }
                             }}
                             sx={{
