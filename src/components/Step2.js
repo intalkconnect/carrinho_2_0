@@ -88,7 +88,7 @@ const Step2 = ({ nextStep, prevStep }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [metodosFrete, setMetodosFrete] = useState({ pac: null, sedex: null });
 
-    const tipoEntrega = watch('tipoEntrega');
+    const tipoEntrega = watch('tipoEntrega') || '';
     const selectedLocal = watch('localRetirada');
 
     const handleCepBlur = async () => {
