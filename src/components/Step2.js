@@ -278,7 +278,6 @@ const Step2 = ({ nextStep, prevStep }) => {
                                                 setValue('frete', metodosFrete.pac);
                                                 setValue('tipoFrete', 'PAC');
                                                 setModalVisible(false);
-                                                nextStep();
                                             }}
                                         >
                                             PAC - R$ {metodosFrete.pac.toFixed(2)}
@@ -293,7 +292,6 @@ const Step2 = ({ nextStep, prevStep }) => {
                                                 setValue('frete', metodosFrete.sedex);
                                                 setValue('tipoFrete', 'SEDEX');
                                                 setModalVisible(false);
-                                                nextStep();
                                             }}
                                         >
                                             SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
