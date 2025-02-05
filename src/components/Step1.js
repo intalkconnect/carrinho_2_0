@@ -1,5 +1,4 @@
-import React from 'react';
-import { useFormContext } from 'react-hook-form';
+import React, { useState, useMemo } from 'react';
 import { Box, TextField, Button } from '@mui/material';
 
 const validateCpfCnpj = (value) => {
@@ -63,12 +62,26 @@ const maskPhone = (value) => {
         : value;
 };
 
-const Step1 = ({ nextStep }) => {
-    const { register, formState: { errors }, getValues, setValue } = useFormContext();
+const Step1 = ({ formData, handleInputChange, nextStep }) => {
+    const [errors, setErrors] = useState({});
 
-    const handleFieldChange = (name, value, mask) => {
-        const maskedValue = mask ? mask(value) : value;
-        setValue(name, maskedValue, { shouldValidate: true });
+    const validateFields = useMemo(() => {
+        const newErrors = {};
+        if (!formData.nomeCompleto?.trim()) newErrors.nomeCompleto = 'Nome completo é obrigatório';
+        if (!formData.cpf || !validateCpfCnpj(formData.cpf)) {
+            newErrors.cpf = 'CPF ou CNPJ inválido ou obrigatório';
+        }
+        if (!formData.celular) newErrors.celular = 'Celular é obrigatório';
+        return newErrors;
+    }, [formData]);
+
+    const handleNext = () => {
+        const validationErrors = validateFields;
+        if (Object.keys(validationErrors).length === 0) {
+            nextStep();
+        } else {
+            setErrors(validationErrors);
+        }
     };
 
     return (
@@ -81,33 +94,48 @@ const Step1 = ({ nextStep }) => {
             >
                 <TextField
                     label="Nome completo"
-                    {...register('nomeCompleto')}
-                    error={!!errors.nomeCompleto}
-                    helperText={errors.nomeCompleto?.message}
+                    name="nomeCompleto"
+                    value={formData.nomeCompleto || ''}
+                    onChange={(e) => {
+                        handleInputChange(e);
+                        setErrors((prev) => ({ ...prev, nomeCompleto: '' }));
+                    }}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
+                    error={!!errors.nomeCompleto}
+                    helperText={errors.nomeCompleto}
                 />
 
                 <TextField
                     label="CPF ou CNPJ"
-                    {...register('cpf')}
+                    name="cpf"
+                    value={maskCpfCnpj(formData.cpf || '')}
                     onChange={(e) => {
                         const cleaned = e.target.value.replace(/\D/g, '');
-                        handleFieldChange('cpf', cleaned, maskCpfCnpj);
+                        handleInputChange({ target: { name: 'cpf', value: cleaned } });
+                        setErrors((prev) => ({ ...prev, cpf: '' }));
                     }}
-                    error={!!errors.cpf}
-                    helperText={errors.cpf?.message}
+                    onBlur={() => {
+                        const cleaned = formData.cpf?.replace(/\D/g, '') || '';
+                        if ([11, 14].includes(cleaned.length)) {
+                            handleInputChange({ target: { name: 'cpf', value: cleaned } });
+                        }
+                    }}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
+                    error={!!errors.cpf}
+                    helperText={errors.cpf}
                 />
 
                 <TextField
                     label="RG (opcional)"
-                    {...register('rg')}
+                    name="rg"
+                    value={formData.rg || ''}
+                    onChange={handleInputChange}
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}
@@ -115,34 +143,42 @@ const Step1 = ({ nextStep }) => {
 
                 <TextField
                     label="Celular"
-                    {...register('celular')}
+                    name="celular"
+                    value={maskPhone(formData.celular || '')}
                     onChange={(e) => {
                         const cleaned = e.target.value.replace(/\D/g, '');
-                        handleFieldChange('celular', cleaned, maskPhone);
+                        handleInputChange({ target: { name: 'celular', value: cleaned } });
+                        setErrors((prev) => ({ ...prev, celular: '' }));
                     }}
-                    error={!!errors.celular}
-                    helperText={errors.celular?.message}
+                    onBlur={() => {
+                        const cleaned = formData.celular?.replace(/\D/g, '') || '';
+                        if ([10, 11].includes(cleaned.length)) {
+                            handleInputChange({ target: { name: 'celular', value: cleaned } });
+                        }
+                    }}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
+                    error={!!errors.celular}
+                    helperText={errors.celular}
                 />
 
                 <TextField
-                    label="E-mail"
-                    {...register('email')}
-                    error={!!errors.email}
-                    helperText={errors.email?.message}
+                    label="E-mail (opcional)"
+                    name="email"
+                    value={formData.email || ''}
+                    onChange={handleInputChange}
                     fullWidth
                     size="small"
                     type="email"
-                    required
                     InputLabelProps={{ shrink: true }}
                 />
 
                 <Button
                     variant="contained"
-                    onClick={nextStep}
+                    color="primary"
+                    onClick={handleNext}
                     sx={{
                         alignSelf: 'flex-end',
                         marginTop: 2,
