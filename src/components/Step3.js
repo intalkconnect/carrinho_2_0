@@ -55,23 +55,123 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
     const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
     const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
 
-    useEffect(() => {
-        register('formaPagamento', { required: 'Selecione uma forma de pagamento' });
-        register('nomeCartao', { required: 'Nome no cartão é obrigatório' });
-        register('numeroCartao', { required: 'Número do cartão é obrigatório' });
-        register('validade', { required: 'Validade é obrigatória' });
-        register('cvv', { required: 'CVV é obrigatório' });
-        register('email', { required: 'Email é obrigatório' });
-        register('mobilePhone', { required: 'Telefone é obrigatório' });
-    }, [register]);
+    // Funções auxiliares
+    const fetchCustomer = async () => {
+        try {
+            const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            const data = await response.json();
+            return data.data?.[0] || null;
+        } catch (error) {
+            console.error('Erro ao buscar cliente:', error);
+            throw new Error('Falha ao buscar cliente');
+        }
+    };
 
-    useEffect(() => {
-        return () => {
-            if (paymentIntervalRef.current) {
-                clearInterval(paymentIntervalRef.current);
-            }
-        };
-    }, []);
+    const createCustomer = async () => {
+        try {
+            const response = await fetch(`${baseURL}/customers`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify({
+                    name: formData.nomeCompleto,
+                    cpfCnpj: formData.cpf,
+                }),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Erro ao criar cliente:', error);
+            throw new Error('Falha ao criar cliente');
+        }
+    };
+
+    const createPixCharge = async (customerId) => {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 1);
+        dueDate.setHours(dueDate.getHours() - 3);
+
+        try {
+            const response = await fetch(`${baseURL}/payments`, {
+                method: 'POST',
+                headers: {
+                    accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    access_token: ASaasToken,
+                },
+                body: JSON.stringify({
+                    billingType: 'PIX',
+                    customer: customerId,
+                    value: parseFloat(totalValue).toFixed(2),
+                    dueDate: dueDate.toISOString().split('T')[0],
+                }),
+            });
+            const data = await response.json();
+            activePixId.current = data.id;
+            return data;
+        } catch (error) {
+            console.error('Erro ao criar cobrança PIX:', error);
+            throw new Error('Falha ao criar cobrança PIX');
+        }
+    };
+
+    const fetchPixQrCode = async (paymentId) => {
+        try {
+            const response = await fetch(`${baseURL}/payments/pix/qrcode/${paymentId}`, {
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Erro ao buscar QR Code:', error);
+            throw new Error('Falha ao buscar QR Code');
+        }
+    };
+
+    const checkPaymentStatus = async (paymentId) => {
+        try {
+            const response = await fetch(`${baseURL}/payments/${paymentId}`, {
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+            return await response.json();
+        } catch (error) {
+            console.error("Erro ao verificar status do pagamento:", error);
+            throw error;
+        }
+    };
+
+    const handleRedirect = () => {
+        const countdown = setInterval(() => {
+            setRedirectCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(countdown);
+                    window.location.href = 'https://wa.me/553192250059';
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const copyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(pixCopyCode);
+            setSnackbar({ open: true, message: 'Código Pix copiado!', severity: 'success' });
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Erro ao copiar código', severity: 'error' });
+        }
+    };
 
     const handleSnackbarClose = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
@@ -102,6 +202,24 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
         
         return sum % 10 === 0;
     };
+
+    useEffect(() => {
+        register('formaPagamento', { required: 'Selecione uma forma de pagamento' });
+        register('nomeCartao', { required: 'Nome no cartão é obrigatório' });
+        register('numeroCartao', { required: 'Número do cartão é obrigatório' });
+        register('validade', { required: 'Validade é obrigatória' });
+        register('cvv', { required: 'CVV é obrigatório' });
+        register('email', { required: 'Email é obrigatório' });
+        register('mobilePhone', { required: 'Telefone é obrigatório' });
+    }, [register]);
+
+    useEffect(() => {
+        return () => {
+            if (paymentIntervalRef.current) {
+                clearInterval(paymentIntervalRef.current);
+            }
+        };
+    }, []);
 
     const handlePixPayment = async () => {
         setProcessingPayment(true);
@@ -378,8 +496,8 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
                     {formaPagamento === 'cartaoCredito' && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <TextField
-                                label="Nome no Cartão"
                                 {...register('nomeCartao')}
+                                label="Nome no Cartão"
                                 error={!!errors.nomeCartao}
                                 helperText={errors.nomeCartao?.message}
                                 disabled={loading}
@@ -388,10 +506,10 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
                             />
 
                             <TextField
-                                label="Número do Cartão"
                                 {...register('numeroCartao')}
+                                label="Número do Cartão"
                                 error={!!errors.numeroCartao}
-                                helperText={errors.numeroCartao?.message}
+                                helperText={errors.numeroCartao?.message || (cardBrand && getCardBrandIcon(cardBrand))}
                                 disabled={loading}
                                 fullWidth
                                 size="small"
@@ -399,10 +517,31 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
 
                             <Box sx={{ display: 'flex', gap: 2 }}>
                                 <TextField
-                                    label="Validade (MM/AA)"
                                     {...register('validade')}
+                                    label="Validade (MM/AA)"
                                     error={!!errors.validade}
                                     helperText={errors.validade?.message}
+                                    disabled={loading}
+                                    fullWidth
+                                    size="small"
+                                />
+                                <TextField
+                                    {...register('cvv')}
+                                    label="CVV"
+                                    type={showCVV ? 'text' : 'password'}
+                                    InputProps={{
+                                        endAdornment: (
+                                            <IconButton
+                                                onClick={() => setShowCVV(!showCVV)}
+                                                edge="end"
+                                                disabled={loading}
+                                            >
+                                                {showCVV ? <VisibilityOff /> : <Visibility />}
+                                            </IconButton>
+                                        ),
+                                    }}
+                                    error={!!errors.cvv}
+                                    helperText={errors.cvv?.message}
                                     disabled={loading}
                                     fullWidth
                                     size="small"
@@ -411,7 +550,7 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
 
                             <TextField
                                 select
-                                label="Número de Parcelas"
+                                label="Parcelas"
                                 value={installments}
                                 onChange={(e) => setInstallments(Number(e.target.value))}
                                 disabled={loading}
@@ -426,8 +565,8 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
                             </TextField>
 
                             <TextField
-                                label="Email"
                                 {...register('email')}
+                                label="Email"
                                 error={!!errors.email}
                                 helperText={errors.email?.message}
                                 disabled={loading}
@@ -437,8 +576,8 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
                             />
 
                             <TextField
-                                label="Telefone"
                                 {...register('mobilePhone')}
+                                label="Telefone"
                                 error={!!errors.mobilePhone}
                                 helperText={errors.mobilePhone?.message}
                                 disabled={loading}
