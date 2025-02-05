@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React from 'react';
+import { useFormContext } from 'react-hook-form';
 import { Box, TextField, Button } from '@mui/material';
 
 const validateCpfCnpj = (value) => {
@@ -62,26 +63,12 @@ const maskPhone = (value) => {
         : value;
 };
 
-const Step1 = ({ formData, handleInputChange, nextStep }) => {
-    const [errors, setErrors] = useState({});
+const Step1 = ({ nextStep }) => {
+    const { register, formState: { errors }, getValues, setValue } = useFormContext();
 
-    const validateFields = useMemo(() => {
-        const newErrors = {};
-        if (!formData.nomeCompleto?.trim()) newErrors.nomeCompleto = 'Nome completo é obrigatório';
-        if (!formData.cpf || !validateCpfCnpj(formData.cpf)) {
-            newErrors.cpf = 'CPF ou CNPJ inválido ou obrigatório';
-        }
-        if (!formData.celular) newErrors.celular = 'Celular é obrigatório';
-        return newErrors;
-    }, [formData]);
-
-    const handleNext = () => {
-        const validationErrors = validateFields;
-        if (Object.keys(validationErrors).length === 0) {
-            nextStep();
-        } else {
-            setErrors(validationErrors);
-        }
+    const handleFieldChange = (name, value, mask) => {
+        const maskedValue = mask ? mask(value) : value;
+        setValue(name, maskedValue, { shouldValidate: true });
     };
 
     return (
@@ -94,48 +81,33 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
             >
                 <TextField
                     label="Nome completo"
-                    name="nomeCompleto"
-                    value={formData.nomeCompleto || ''}
-                    onChange={(e) => {
-                        handleInputChange(e);
-                        setErrors((prev) => ({ ...prev, nomeCompleto: '' }));
-                    }}
+                    {...register('nomeCompleto')}
+                    error={!!errors.nomeCompleto}
+                    helperText={errors.nomeCompleto?.message}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
-                    error={!!errors.nomeCompleto}
-                    helperText={errors.nomeCompleto}
                 />
 
                 <TextField
                     label="CPF ou CNPJ"
-                    name="cpf"
-                    value={maskCpfCnpj(formData.cpf || '')}
+                    {...register('cpf')}
                     onChange={(e) => {
                         const cleaned = e.target.value.replace(/\D/g, '');
-                        handleInputChange({ target: { name: 'cpf', value: cleaned } });
-                        setErrors((prev) => ({ ...prev, cpf: '' }));
+                        handleFieldChange('cpf', cleaned, maskCpfCnpj);
                     }}
-                    onBlur={() => {
-                        const cleaned = formData.cpf?.replace(/\D/g, '') || '';
-                        if ([11, 14].includes(cleaned.length)) {
-                            handleInputChange({ target: { name: 'cpf', value: cleaned } });
-                        }
-                    }}
+                    error={!!errors.cpf}
+                    helperText={errors.cpf?.message}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
-                    error={!!errors.cpf}
-                    helperText={errors.cpf}
                 />
 
                 <TextField
                     label="RG (opcional)"
-                    name="rg"
-                    value={formData.rg || ''}
-                    onChange={handleInputChange}
+                    {...register('rg')}
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}
@@ -143,42 +115,34 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
 
                 <TextField
                     label="Celular"
-                    name="celular"
-                    value={maskPhone(formData.celular || '')}
+                    {...register('celular')}
                     onChange={(e) => {
                         const cleaned = e.target.value.replace(/\D/g, '');
-                        handleInputChange({ target: { name: 'celular', value: cleaned } });
-                        setErrors((prev) => ({ ...prev, celular: '' }));
+                        handleFieldChange('celular', cleaned, maskPhone);
                     }}
-                    onBlur={() => {
-                        const cleaned = formData.celular?.replace(/\D/g, '') || '';
-                        if ([10, 11].includes(cleaned.length)) {
-                            handleInputChange({ target: { name: 'celular', value: cleaned } });
-                        }
-                    }}
+                    error={!!errors.celular}
+                    helperText={errors.celular?.message}
                     fullWidth
                     size="small"
                     required
                     InputLabelProps={{ shrink: true }}
-                    error={!!errors.celular}
-                    helperText={errors.celular}
                 />
 
                 <TextField
-                    label="E-mail (opcional)"
-                    name="email"
-                    value={formData.email || ''}
-                    onChange={handleInputChange}
+                    label="E-mail"
+                    {...register('email')}
+                    error={!!errors.email}
+                    helperText={errors.email?.message}
                     fullWidth
                     size="small"
                     type="email"
+                    required
                     InputLabelProps={{ shrink: true }}
                 />
 
                 <Button
                     variant="contained"
-                    color="primary"
-                    onClick={handleNext}
+                    onClick={nextStep}
                     sx={{
                         alignSelf: 'flex-end',
                         marginTop: 2,
