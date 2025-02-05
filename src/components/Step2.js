@@ -406,7 +406,6 @@ const Step2 = ({ formData, handleInputChange, nextStep, prevStep }) => {
                             </Button>
                         )}
                     </Box>
-                </Box>
             )}
 
             {tipoEntrega === 'retirada' && (
