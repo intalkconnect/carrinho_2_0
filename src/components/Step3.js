@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useFormContext } from 'react-hook-form';
 import {
     Box,
     Button,
@@ -13,83 +12,73 @@ import {
     Alert,
     TextField,
     MenuItem,
-    Dialog,
-    DialogContent,
-    LinearProgress,
-    Paper,
 } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import PaymentIcon from '@mui/icons-material/Payment';
-import PixIcon from '@mui/icons-material/QrCode2';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
-    const { register, setValue, watch, formState: { errors }, trigger } = useFormContext();
+const Step3 = ({ handleInputChange, finalizeCheckout, totalValue, formData }) => {
+    const [formaPagamento, setFormaPagamento] = useState('');
+    const formaPagamentoRef = useRef(formaPagamento);
     const [loading, setLoading] = useState(false);
-    const [processingPayment, setProcessingPayment] = useState(false);
     const [qrcode, setQrcode] = useState('');
     const [pixCopyCode, setPixCopyCode] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('');
     const [verificationCount, setVerificationCount] = useState(0);
     const [isQrCodeUpdated, setIsQrCodeUpdated] = useState(true);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
     const [redirectCountdown, setRedirectCountdown] = useState(5);
-    const [showCVV, setShowCVV] = useState(false);
-    const [installments, setInstallments] = useState(1);
-    const [cardBrand, setCardBrand] = useState('');
-    const [progressMessage, setProgressMessage] = useState('');
-    const [progress, setProgress] = useState(0);
-    const [snackbar, setSnackbar] = useState({
-        open: false,
-        message: '',
-        severity: 'info',
+    const [disableOptions, setDisableOptions] = useState(false);
+    const [cardDetails, setCardDetails] = useState({
+        nomeCartao: '',
+        numeroCartao: '',
+        validade: '',
+        cvv: '',
+    });
+    const [disabledFields, setDisabledFields] = useState({
+    nomeCartao: false,
+    numeroCartao: false,
+    validade: false,
+    cvv: false,
     });
 
-    const [disableOptions, setDisableOptions] = useState(false);
-    const formaPagamento = watch('formaPagamento');
-    const formaPagamentoRef = useRef(formaPagamento);
-    const paymentIntervalRef = useRef(null);
+    const [cardBrand, setCardBrand] = useState('');
+    const [showCVV, setShowCVV] = useState(false);
+    const [installments, setInstallments] = useState(1);
+    const [cardHolderInfo, setCardHolderInfo] = useState({
+        name: formData.nomeCompleto || '',
+        email: '',
+        postalCode: formData.cep || '',
+        addressNumber: formData.numero || '',
+        mobilePhone: '',
+    });
+    const [errors, setErrors] = useState({});
     const activePixId = useRef(null);
+    const paymentIntervalRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (paymentIntervalRef.current) {
+                clearInterval(paymentIntervalRef.current);
+                paymentIntervalRef.current = null;
+            }
+        };
+    }, []);
 
     const ASaasToken = '$aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjljNjY3NzAzLWVlMzMtNDNlZS1iMDc4LTBhNzc1YjNmM2EwMDo6JGFhY2hfNDRjYzJlNDAtMmM4MC00MmJjLWEwN2MtOWJlNDE5MmEwYTQ5';
     const baseURL = 'https://endpoints-checkout.rzyewu.easypanel.host';
 
-    const detectCardBrand = (number) => {
-        const cleanNumber = number.replace(/\D/g, '');
-        if (!cleanNumber) return '';
+    const handleSnackbarClose = () => setSnackbar(prev => ({ ...prev, open: false }));
 
-        const patterns = {
-            visa: /^4/,
-            mastercard: /^5[1-5]/,
-            amex: /^3[47]/,
-            elo: /^(401178|401179|431274|438935|451416|457393|457631|457632|504175|627780|636297|636368|636369|(506699|5067[0-6]\d|50677[0-8])|(50900\d|5090[1-9]\d|509[1-9]\d{2})|65003[1-3]|(65003[5-9]|65004\d|65005[0-1])|(65040[5-9]|6504[1-3]\d)|(65048[5-9]|65049\d|6505[0-2]\d|65053[0-8])|(65054[1-9]|6505[5-8]\d|65059[0-8])|(65070\d|65071[0-8])|65072[0-7]|(6509[0-9])|(6516[5-7])|(6550[0-5])|655021)/,
-            hipercard: /^(384100|384140|384160|606282|637095|637568|60(?!11))/,
-            diners: /^3(?:0[0-5]|[68][0-9])[0-9]/
-        };
-
-        for (const [brand, pattern] of Object.entries(patterns)) {
-            if (pattern.test(cleanNumber)) {
-                return brand;
-            }
+    const copyToClipboard = async () => {
+        try {
+            await navigator.clipboard.writeText(pixCopyCode);
+            setSnackbar({ open: true, message: 'Código Pix copiado!', severity: 'success' });
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Erro ao copiar código', severity: 'error' });
         }
-
-        return '';
     };
 
-    const getCardBrandIcon = (brand) => {
-        const brandIcons = {
-            visa: '💳 Visa',
-            mastercard: '💳 Mastercard',
-            amex: '💳 American Express',
-            elo: '💳 Elo',
-            hipercard: '💳 Hipercard',
-            diners: '💳 Diners Club'
-        };
-        return brandIcons[brand] || '';
-    };
-
-    // Funções auxiliares
     const fetchCustomer = async () => {
         try {
             const response = await fetch(`${baseURL}/customers?cpfCnpj=${formData.cpf}`, {
@@ -127,6 +116,119 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
         }
     };
 
+    const maskPhone = (value) => {
+        const cleaned = value.replace(/\D/g, '');
+        const match = cleaned.match(/^(\d{2})(\d{4,5})(\d{4})$/);
+        return match ? `(${match[1]}) ${match[2]}-${match[3]}` : value;
+    };
+
+    const maskCardNumber = (number) => {
+        const visibleDigits = 4;
+        const maskedPortion = number.slice(0, -visibleDigits).replace(/\d/g, '•');
+        return maskedPortion + number.slice(-visibleDigits);
+    };
+
+    const clearSensitiveData = () => {
+        setCardDetails({
+            nomeCartao: '',
+            numeroCartao: '',
+            validade: '',
+            cvv: '',
+        });
+        // // Limpar dados do form após uso
+        // if (document.getElementById('cardForm')) {
+        //     document.getElementById('cardForm').reset();
+        // }
+    };
+
+    const toggleCardFields = (disabled) => {
+        setDisabledFields({
+            nomeCartao: disabled,
+            numeroCartao: disabled,
+            validade: disabled,
+            cvv: disabled,
+        });
+    };
+
+
+    const sanitizeCardData = (cardData) => {
+        return {
+            ...cardData,
+            numeroCartao: cardData.numeroCartao.replace(/\s/g, ''),
+            nomeCartao: cardData.nomeCartao.trim().toUpperCase(),
+            cvv: cardData.cvv.trim(),
+            validade: cardData.validade.trim()
+        };
+    };
+
+    // Função melhorada para validação PCI DSS
+    const validateCardPCI = (cardNumber) => {
+        // Implementar algoritmo de Luhn
+        let sum = 0;
+        let isEven = false;
+
+        // Loop de trás para frente
+        for (let i = cardNumber.length - 1; i >= 0; i--) {
+            let digit = parseInt(cardNumber.charAt(i), 10);
+
+            if (isEven) {
+                digit *= 2;
+                if (digit > 9) {
+                    digit -= 9;
+                }
+            }
+
+            sum += digit;
+            isEven = !isEven;
+        }
+
+        return sum % 10 === 0;
+    };
+
+    const detectCardBrand = (number) => {
+        const cleanNumber = number.replace(/\D/g, '');
+        if (!cleanNumber) return '';
+
+        // Padrões de identificação das bandeiras
+        const patterns = {
+            visa: /^4/,
+            mastercard: /^5[1-5]/,
+            amex: /^3[47]/,
+            elo: /^(401178|401179|431274|438935|451416|457393|457631|457632|504175|627780|636297|636368|636369|(506699|5067[0-6]\d|50677[0-8])|(50900\d|5090[1-9]\d|509[1-9]\d{2})|65003[1-3]|(65003[5-9]|65004\d|65005[0-1])|(65040[5-9]|6504[1-3]\d)|(65048[5-9]|65049\d|6505[0-2]\d|65053[0-8])|(65054[1-9]|6505[5-8]\d|65059[0-8])|(65070\d|65071[0-8])|65072[0-7]|(6509[0-9])|(6516[5-7])|(6550[0-5])|655021)/,
+            hipercard: /^(384100|384140|384160|606282|637095|637568|60(?!11))/,
+            diners: /^3(?:0[0-5]|[68][0-9])[0-9]/
+        };
+
+        // Verifica cada padrão
+        for (const [brand, pattern] of Object.entries(patterns)) {
+            if (pattern.test(cleanNumber)) {
+                return brand;
+            }
+        }
+
+        return '';
+    };
+
+    const getCardBrandIcon = (brand) => {
+        // Retorna o caminho do ícone baseado na bandeira
+        switch (brand) {
+            case 'visa':
+                return '💳 Visa';
+            case 'mastercard':
+                return '💳 Mastercard';
+            case 'amex':
+                return '💳 American Express';
+            case 'elo':
+                return '💳 Elo';
+            case 'hipercard':
+                return '💳 Hipercard';
+            case 'diners':
+                return '💳 Diners Club';
+            default:
+                return '';
+        }
+    };
+
     const createPixCharge = async (customerId) => {
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 1);
@@ -156,9 +258,23 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
         }
     };
 
+    const deletePixCharge = async (pixId) => {
+        try {
+            await fetch(`${baseURL}/payments/${pixId}`, {
+                method: 'DELETE',
+                headers: {
+                    accept: 'application/json',
+                    access_token: ASaasToken,
+                },
+            });
+        } catch (error) {
+            console.error("Erro ao excluir cobrança Pix:", error);
+        }
+    };
+
     const fetchPixQrCode = async (paymentId) => {
         try {
-            const response = await fetch(`${baseURL}/payments/pix/qrcode/${paymentId}`, {
+            const response = await fetch(`${baseURL}/payments/byPixQrCode?pixQrCode=${paymentId}`, {
                 headers: {
                     accept: 'application/json',
                     access_token: ASaasToken,
@@ -172,8 +288,16 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
     };
 
     const checkPaymentStatus = async (paymentId) => {
+        if (formaPagamentoRef.current !== 'pix') {
+            if (activePixId.current) {
+                await deletePixCharge(activePixId.current);
+                activePixId.current = null;
+            }
+            return;
+        }
+
         try {
-            const response = await fetch(`${baseURL}/payments/${paymentId}`, {
+            const response = await fetch(`${baseURL}/payments/byStatus?status=${paymentId}`, {
                 headers: {
                     accept: 'application/json',
                     access_token: ASaasToken,
@@ -198,550 +322,625 @@ const Step3 = ({ finalizeCheckout, totalValue, formData }) => {
         }, 1000);
     };
 
-    const copyToClipboard = async () => {
-        try {
-            await navigator.clipboard.writeText(pixCopyCode);
-            setSnackbar({ open: true, message: 'Código Pix copiado!', severity: 'success' });
-        } catch (error) {
-            setSnackbar({ open: true, message: 'Erro ao copiar código', severity: 'error' });
-        }
-    };
-
-    const handleSnackbarClose = () => {
-        setSnackbar((prev) => ({ ...prev, open: false }));
-    };
-
-    const updateProgress = (message, value) => {
-        setProgressMessage(message);
-        setProgress(value);
-    };
-
-    const validateCardPCI = (cardNumber) => {
-        let sum = 0;
-        let isEven = false;
-        
-        for (let i = cardNumber.length - 1; i >= 0; i--) {
-            let digit = parseInt(cardNumber.charAt(i), 10);
-            
-            if (isEven) {
-                digit *= 2;
-                if (digit > 9) {
-                    digit -= 9;
-                }
-            }
-            
-            sum += digit;
-            isEven = !isEven;
-        }
-        
-        return sum % 10 === 0;
-    };
-
-    useEffect(() => {
-        register('formaPagamento', { required: 'Selecione uma forma de pagamento' });
-        register('nomeCartao', { required: 'Nome no cartão é obrigatório' });
-        register('numeroCartao', { required: 'Número do cartão é obrigatório' });
-        register('validade', { required: 'Validade é obrigatória' });
-        register('cvv', { required: 'CVV é obrigatório' });
-        register('email', { required: 'Email é obrigatório' });
-        register('mobilePhone', { required: 'Telefone é obrigatório' });
-    }, [register]);
-
-    useEffect(() => {
-        return () => {
-            if (paymentIntervalRef.current) {
-                clearInterval(paymentIntervalRef.current);
-            }
-        };
-    }, []);
-
     const handlePixPayment = async () => {
-        setProcessingPayment(true);
         setLoading(true);
-        
+        setVerificationCount(0);
+        setDisableOptions(true);
+
         try {
-            updateProgress('Verificando dados do cliente...', 20);
             let customer = await fetchCustomer();
-            
             if (!customer) {
-                updateProgress('Criando novo cliente...', 40);
                 customer = await createCustomer();
             }
-            
-            updateProgress('Gerando cobrança PIX...', 60);
+
             const charge = await createPixCharge(customer.id);
-            
-            updateProgress('Gerando QR Code...', 80);
             const pixData = await fetchPixQrCode(charge.id);
-            
+
             setQrcode(pixData?.encodedImage || '');
             setPixCopyCode(pixData?.payload || '');
             setIsQrCodeUpdated(true);
-            
-            updateProgress('QR Code pronto!', 100);
-            
-            // Iniciar verificação
-            let verifications = 0;
+
+            let currentVerificationCount = 0;
+
             paymentIntervalRef.current = setInterval(async () => {
-                verifications++;
-                setVerificationCount(verifications);
-                
+                currentVerificationCount++;
+                setVerificationCount(currentVerificationCount);
+
+                if (currentVerificationCount > 4) {
+                    clearInterval(paymentIntervalRef.current);
+                    if (activePixId.current) {
+                        await deletePixCharge(activePixId.current);
+                        activePixId.current = null;
+                    }
+                    setQrcode('');
+                    setPixCopyCode('');
+                    setIsQrCodeUpdated(false);
+                    setSnackbar({
+                        open: true,
+                        message: 'Limite de verificações atingido. Atualize o QR Code.',
+                        severity: 'warning',
+                    });
+                    setLoading(false);
+                    return;
+                }
+
                 try {
                     const status = await checkPaymentStatus(charge.id);
-                    if (status?.status === 'RECEIVED' || verifications >= 5) {
+                    if (status?.status === 'RECEIVED') {
                         clearInterval(paymentIntervalRef.current);
-                        if (status?.status === 'RECEIVED') {
-                            setPaymentStatus('PAID');
-                            finalizeCheckout();
-                            handleRedirect();
-                        }
+                        setPaymentStatus('PAID');
+                        finalizeCheckout();
+                        handleRedirect();
+                        setLoading(false);
                     }
                 } catch (error) {
-                    console.error('Erro na verificação:', error);
+                    console.error("Erro na verificação:", error);
                 }
-            }, 15000);
-            
+            }, 30000);
         } catch (error) {
-            setSnackbar({
-                open: true,
-                message: 'Erro ao gerar PIX. Tente novamente.',
-                severity: 'error'
-            });
+            console.error("Erro no processo PIX:", error);
+            setSnackbar({ open: true, message: 'Erro ao processar PIX.', severity: 'error' });
         } finally {
-            setProcessingPayment(false);
             setLoading(false);
-            setProgress(0);
+            setDisableOptions(false);
         }
     };
 
-    const handleCardPayment = async (data) => {
-        setProcessingPayment(true);
-        setLoading(true);
-        
-        try {
-            updateProgress('Validando dados do cartão...', 20);
-            const isValid = await trigger([
-                'nomeCartao',
-                'numeroCartao',
-                'validade',
-                'cvv',
-                'email',
-                'mobilePhone'
-            ]);
-            
-            if (!isValid) {
-                throw new Error('Por favor, preencha todos os campos corretamente.');
+    const handleFormChange = (event) => {
+        const { value } = event.target;
+        setFormaPagamento(value);
+        handleInputChange({ target: { name: 'formaPagamento', value } });
+
+        if (formaPagamento === 'pix' && value === 'cartaoCredito') {
+            if (paymentIntervalRef.current) {
+                clearInterval(paymentIntervalRef.current);
             }
-            
-            updateProgress('Processando pagamento...', 40);
-            const [expiryMonth, expiryYear] = data.validade.split('/');
-            
-            updateProgress('Verificando cliente...', 60);
-            let customer = await fetchCustomer();
-            
-            if (!customer) {
-                updateProgress('Criando cliente...', 70);
-                customer = await createCustomer();
+            if (activePixId.current) {
+                deletePixCharge(activePixId.current);
+                activePixId.current = null;
             }
-            
-            updateProgress('Finalizando transação...', 80);
-            const payload = {
-                customer: customer.id,
-                billingType: 'CREDIT_CARD',
-                dueDate: new Date().toISOString().split('T')[0],
-                value: installments === 1 ? totalValue : undefined,
-                installmentCount: installments > 1 ? installments : undefined,
-                totalValue: installments > 1 ? totalValue : undefined,
-                creditCard: {
-                    holderName: data.nomeCartao,
-                    number: data.numeroCartao.replace(/\s/g, ''),
-                    expiryMonth,
-                    expiryYear: `20${expiryYear}`,
-                    ccv: data.cvv,
-                },
-                creditCardHolderInfo: {
-                    name: data.nomeCartao,
-                    email: data.email,
-                    cpfCnpj: formData.cpf,
-                    postalCode: formData.cep,
-                    addressNumber: formData.numero,
-                    mobilePhone: data.mobilePhone,
-                }
-            };
-            
-            const response = await fetch(`${baseURL}/payments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'access_token': ASaasToken
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            const responseData = await response.json();
-            
-            if (response.ok && responseData.status === 'CONFIRMED') {
-                updateProgress('Pagamento aprovado!', 100);
-                setPaymentStatus('PAID');
-                finalizeCheckout();
-                handleRedirect();
-            } else {
-                throw new Error(responseData.errors?.[0]?.description || 'Erro ao processar pagamento');
-            }
-            
-        } catch (error) {
-            setSnackbar({
-                open: true,
-                message: error.message,
-                severity: 'error'
-            });
-        } finally {
-            setProcessingPayment(false);
-            setLoading(false);
-            setProgress(0);
+            setQrcode('');
+            setPixCopyCode('');
+            setIsQrCodeUpdated(false);
+            setPaymentStatus('');
+            setVerificationCount(0);
+        }
+
+        if (value === 'pix') {
+            setQrcode('');
+            setPixCopyCode('');
+            setIsQrCodeUpdated(true);
+            setPaymentStatus('');
+            setLoading(true);
+            handlePixPayment();
         }
     };
 
-    const PaymentProcessingDialog = () => (
-        <Dialog open={processingPayment} fullWidth maxWidth="sm">
-            <DialogContent>
-                <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="h6" gutterBottom color="primary">
-                        {progressMessage}
-                    </Typography>
-                    <LinearProgress
-                        variant="determinate"
-                        value={progress}
-                        sx={{
-                            my: 2,
-                            height: 8,
-                            borderRadius: 4,
-                            bgcolor: '#e0e0e0',
-                            '& .MuiLinearProgress-bar': {
-                                bgcolor: '#00695c',
-                                borderRadius: 4,
+    const handleCardDetailChange = (e) => {
+        const { name, value } = e.target;
+
+        const handlers = {
+            nomeCartao: (val) => ({
+                value: val.replace(/[^a-zA-Z\s]/g, '').toUpperCase(),
+                error: val.length < 3 ? 'Nome inválido' : null
+            }),
+            numeroCartao: (val) => {
+                const numericValue = val.replace(/\D/g, '');
+                const isValid = numericValue.length <= 16 && validateCardPCI(numericValue);
+                // Detecta a bandeira quando os primeiros dígitos são digitados
+                const brand = detectCardBrand(numericValue);
+                setCardBrand(brand);
+
+                return {
+                    value: numericValue.length <= 16 ? numericValue.replace(/(.{4})/g, '$1 ').trim() : cardDetails.numeroCartao,
+                    error: !isValid ? 'Número de cartão inválido' : null
+                };
+            },
+            validade: (val) => {
+                // Remove caracteres não numéricos
+                const cleaned = val.replace(/\D/g, '');
+
+                // Limita a 4 dígitos (MMAA)
+                const limited = cleaned.slice(0, 4);
+
+                let formatted = limited;
+                let error = null;
+
+                // Se temos pelo menos 1 dígito
+                if (limited.length >= 1) {
+                    const month = parseInt(limited.substring(0, 2), 10);
+
+                    // Se temos 2 ou mais dígitos, valida o mês
+                    if (limited.length >= 2) {
+                        if (month < 1 || month > 12) {
+                            error = 'Mês inválido';
+                        }
+                        formatted = month.toString().padStart(2, '0');
+
+                        // Adiciona a barra e os dígitos do ano se existirem
+                        if (limited.length > 2) {
+                            formatted += '/' + limited.substring(2);
+
+                            // Validação completa quando temos mês e ano
+                            if (limited.length === 4) {
+                                const year = parseInt(limited.substring(2), 10);
+                                const currentDate = new Date();
+                                const currentYear = currentDate.getFullYear() % 100;
+                                const currentMonth = currentDate.getMonth() + 1;
+
+                                if (year < currentYear || (year === currentYear && month < currentMonth)) {
+                                    error = 'Cartão vencido';
+                                }
                             }
-                        }}
-                    />
-                    <CircularProgress
-                        size={30}
-                        sx={{ mt: 2, color: '#00695c' }}
-                    />
-                </Box>
-            </DialogContent>
-        </Dialog>
-    );
-
-    const PaymentSuccessModal = () => (
-        <Dialog
-            open={paymentStatus === 'PAID'}
-            fullWidth
-            maxWidth="sm"
-            PaperProps={{
-                sx: {
-                    borderRadius: 2,
-                    p: 3
+                        }
+                    } else {
+                        formatted = limited;
+                    }
                 }
-            }}
-        >
-            <DialogContent>
-                <Box sx={{ textAlign: 'center' }}>
-                    <CheckCircleIcon
-                        sx={{
-                            fontSize: 80,
-                            color: '#00695c',
-                            mb: 2
-                        }}
-                    />
-                    <Typography variant="h4" gutterBottom>
-                        Pagamento Confirmado!
-                    </Typography>
-                    <Typography variant="h6" color="text.secondary">
-                        Redirecionando em {redirectCountdown} segundos...
-                    </Typography>
-                    <CircularProgress
-                        size={30}
-                        sx={{
-                            mt: 3,
-                            color: '#00695c'
-                        }}
-                    />
-                </Box>
-            </DialogContent>
-        </Dialog>
-    );
+
+                return {
+                    value: formatted,
+                    error
+                };
+            },
+            cvv: (val) => ({
+                value: val.replace(/\D/g, '').substring(0, 3),
+                error: val.length !== 3 ? 'CVV deve ter 3 dígitos' : null
+            })
+        };
+
+        if (handlers[name]) {
+            const { value: newValue, error } = handlers[name](value);
+            setCardDetails(prev => ({ ...prev, [name]: newValue }));
+            setErrors(prev => ({ ...prev, [name]: error }));
+        }
+    };
+
+    const handleCardHolderInfoChange = (e) => {
+        const { name, value } = e.target;
+        const handlers = {
+            postalCode: (val) => val.replace(/\D/g, ''),
+            addressNumber: (val) => val.replace(/\D/g, ''),
+            mobilePhone: maskPhone,
+        };
+
+        setCardHolderInfo(prev => ({
+            ...prev,
+            [name]: handlers[name] ? handlers[name](value) : value,
+        }));
+    };
+
+    const validateCardDetails = () => {
+        const validations = {
+            nomeCartao: (v) => !!v || 'O nome no cartão é obrigatório.',
+            numeroCartao: (v) => v.replace(/\s/g, '').length === 16 || 'O número do cartão deve ter 16 dígitos.',
+            validade: (v) => /^\d{2}\/\d{2}$/.test(v) || 'A validade deve estar no formato MM/AA.',
+            cvv: (v) => v.length === 3 || 'O CVV deve ter 3 dígitos.',
+            email: (v) => !!v || 'O email é obrigatório.',
+            postalCode: (v) => v.length === 8 || 'O CEP deve conter 8 dígitos.',
+            addressNumber: (v) => !!v || 'O número do endereço é obrigatório.',
+            mobilePhone: (v) => /^(\(\d{2}\) \d{4,5}-\d{4})$/.test(v) || 'O telefone deve estar no formato (XX) XXXXX-XXXX.',
+        };
+
+        const newErrors = {};
+        Object.entries(validations).forEach(([field, validator]) => {
+            const value = field in cardDetails ? cardDetails[field] : cardHolderInfo[field];
+            const validationResult = validator(value);
+            if (validationResult !== true) {
+                newErrors[field] = validationResult;
+            }
+        });
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    // Modificar handleCardPayment para incluir segurança adicional
+    const handleCardPayment = async () => {
+    if (!validateCardDetails()) {
+        console.log("Erro: Detalhes do cartão inválidos.");
+        return;
+    }
+
+    setLoading(true);
+    toggleCardFields(true);
+    try {
+        console.log("Iniciando o processo de pagamento...");
+
+        // Converter totalValue para número e garantir 2 casas decimais
+        const totalValueParsed = parseFloat(totalValue);
+        console.log("Valor total após conversão:", totalValueParsed);
+
+        if (isNaN(totalValueParsed)) {
+            console.log("Erro: Valor total inválido.");
+            throw new Error("Valor total inválido");
+        }
+
+        // Sanitizar dados antes do envio
+        const sanitizedCardDetails = sanitizeCardData(cardDetails);
+        console.log("Dados do cartão sanitizados:", sanitizedCardDetails);
+
+        // Validar número do cartão usando algoritmo de Luhn
+        if (!validateCardPCI(sanitizedCardDetails.numeroCartao)) {
+            console.log("Erro: Número de cartão inválido.");
+            throw new Error("Número de cartão inválido");
+        }
+
+        let customer = await fetchCustomer();
+        console.log("Cliente recuperado:", customer);
+
+        if (!customer) {
+            console.log("Cliente não encontrado. Criando um novo cliente...");
+            customer = await createCustomer();
+        }
+
+        if (!customer.id) {
+            console.log("Erro: Falha ao obter o ID do cliente.");
+            throw new Error("Falha ao obter o ID do cliente.");
+        }
+
+        const [expiryMonth, expiryYear] = sanitizedCardDetails.validade.split('/');
+        console.log(`Mês de validade: ${expiryMonth}, Ano de validade: ${expiryYear}`);
+
+        // Validar data de expiração
+        const currentDate = new Date();
+        const cardDate = new Date(2000 + parseInt(expiryYear), parseInt(expiryMonth) - 1);
+
+        if (cardDate < currentDate) {
+            console.log("Erro: Cartão expirado.");
+            throw new Error("Cartão expirado");
+        }
+
+        const remoteIp = await fetch('https://api.ipify.org?format=json')
+            .then((res) => res.json())
+            .then((data) => data.ip);
+        console.log("IP remoto obtido:", remoteIp);
+
+        const payload = {
+            customer: customer.id,
+            billingType: 'CREDIT_CARD',
+            dueDate: new Date().toISOString().split('T')[0],
+            value: installments === 1 ? totalValueParsed.toFixed(2) : undefined,
+            installmentCount: installments > 1 ? installments : undefined,
+            totalValue: installments > 1 ? totalValueParsed.toFixed(2) : undefined,
+            creditCard: {
+                holderName: sanitizedCardDetails.nomeCartao,
+                number: sanitizedCardDetails.numeroCartao,
+                expiryMonth,
+                expiryYear: `20${expiryYear}`,
+                ccv: sanitizedCardDetails.cvv,
+            },
+            creditCardHolderInfo: {
+                name: cardHolderInfo.name,
+                email: cardHolderInfo.email,
+                cpfCnpj: formData.cpf,
+                postalCode: cardHolderInfo.postalCode,
+                addressNumber: cardHolderInfo.addressNumber,
+                mobilePhone: cardHolderInfo.mobilePhone,
+            },
+            remoteIp,
+        };
+
+        console.log("Payload enviado para o servidor:", JSON.stringify(payload, null, 2));
+
+        const response = await fetch(`${baseURL}/payments`, {
+            method: 'POST',
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                access_token: ASaasToken,
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        console.log("Resposta da API de pagamento:", data);
+
+        if (response.ok && data.status === 'CONFIRMED') {
+            console.log("Pagamento confirmado!");
+            setPaymentStatus('PAID');
+            setSnackbar({ open: true, message: 'Pagamento confirmado!', severity: 'success' });
+            finalizeCheckout();
+            // Limpar dados sensíveis após confirmação
+            clearSensitiveData();
+            handleRedirect();
+        } else {
+            const errorMessage = data.errors?.[0]?.description || 'Erro ao processar pagamento. Tente novamente.';
+            console.log("Erro ao processar pagamento:", errorMessage);
+            setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            toggleCardFields(false);
+        }
+    } catch (error) {
+        console.error("Erro ao processar pagamento:", error);
+        setSnackbar({
+            open: true,
+            message: `Erro ao processar pagamento: ${error.message || 'Erro desconhecido'}`,
+            severity: 'error'
+        });
+        toggleCardFields(false);
+    } finally {
+        setLoading(false);
+        
+    }
+};
+
 
     return (
         <Box sx={{ p: 3 }}>
-            <PaymentProcessingDialog />
-            <PaymentSuccessModal />
-
-            <Paper elevation={0} sx={{ p: 3, bgcolor: '#f5f5f5' }}>
-                <Typography variant="h6" gutterBottom>
-                    Escolha a forma de pagamento
-                </Typography>
-
+            {paymentStatus === 'PAID' && (
                 <Box
-                    component="form"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        const data = watch();
-                        formaPagamento === 'cartaoCredito' ? handleCardPayment(data) : handlePixPayment();
-                    }}
                     sx={{
-                        mt: 3,
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        zIndex: 9999,
                         display: 'flex',
-                        flexDirection: 'column',
-                        gap: 3
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        color: '#fff',
                     }}
                 >
-                    <FormControl>
-                        <RadioGroup
-                            row
-                            value={formaPagamento || ''}
-                            onChange={(e) => setValue('formaPagamento', e.target.value)}
-                            sx={{ gap: 4 }}
-                        >
-                            <FormControlLabel
-                                value="cartaoCredito"
-                                control={<Radio />}
-                                label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <PaymentIcon />
-                                        <Typography>Cartão de Crédito</Typography>
-                                    </Box>
-                                }
-                                disabled={loading}
-                            />
-                            <FormControlLabel
-                                value="pix"
-                                control={<Radio />}
-                                label={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <PixIcon />
-                                        <Typography>PIX</Typography>
-                                    </Box>
-                                }
-                                disabled={loading}
-                            />
-                        </RadioGroup>
-                    </FormControl>
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" sx={{ mb: 2 }}>
+                            Pagamento confirmado com sucesso!
+                        </Typography>
+                        <Typography variant="h6">
+                            Você será redirecionado em {redirectCountdown} segundos...
+                        </Typography>
+                    </Box>
+                </Box>
+            )}
 
-                    {formaPagamento === 'cartaoCredito' && (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <TextField
-                                {...register('nomeCartao')}
-                                label="Nome no Cartão"
-                                error={!!errors.nomeCartao}
-                                helperText={errors.nomeCartao?.message}
-                                disabled={loading}
-                                fullWidth
-                                size="small"
-                            />
+            <Typography variant="h6" sx={{ mb: 2 }}>Escolha a forma de pagamento:</Typography>
 
-                            <TextField
-                                {...register('numeroCartao')}
-                                label="Número do Cartão"
-                                error={!!errors.numeroCartao}
-                                helperText={errors.numeroCartao?.message || (cardBrand && getCardBrandIcon(cardBrand))}
-                                disabled={loading}
-                                fullWidth
-                                size="small"
-                            />
-
-                            <Box sx={{ display: 'flex', gap: 2 }}>
-                                <TextField
-                                    {...register('validade')}
-                                    label="Validade (MM/AA)"
-                                    error={!!errors.validade}
-                                    helperText={errors.validade?.message}
-                                    disabled={loading}
-                                    fullWidth
-                                    size="small"
-                                />
-                                <TextField
-                                    {...register('cvv')}
-                                    label="CVV"
-                                    type={showCVV ? 'text' : 'password'}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <IconButton
-                                                onClick={() => setShowCVV(!showCVV)}
-                                                edge="end"
-                                                disabled={loading}
-                                            >
-                                                {showCVV ? <VisibilityOff /> : <Visibility />}
-                                            </IconButton>
-                                        ),
+            <Box
+                component="form"
+                key={formaPagamento}
+                noValidate
+                autoComplete="off"
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    maxWidth: { xs: '100%', md: '400px' },
+                    mx: 'auto',
+                }}
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    if (formaPagamento === 'cartaoCredito') {
+                        handleCardPayment();
+                    } else if (formaPagamento === 'pix') {
+                        handlePixPayment();
+                    }
+                }}
+            >
+                <FormControl component="fieldset">
+                    <RadioGroup
+                        name="formaPagamento"
+                        value={formaPagamento}
+                        onChange={handleFormChange}
+                        sx={{
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            justifyContent: 'center',
+                            gap: 2,
+                        }}
+                    >
+                        <FormControlLabel
+                            value="cartaoCredito"
+                            control={
+                                <Radio
+                                    sx={{
+                                        color: '#00695c',
+                                        '&.Mui-checked': { color: '#00695c' }
                                     }}
-                                    error={!!errors.cvv}
-                                    helperText={errors.cvv?.message}
-                                    disabled={loading}
-                                    fullWidth
-                                    size="small"
+                                    disabled={disableOptions}
                                 />
+                            }
+                            label="Cartão de Crédito"
+                        />
+                        <FormControlLabel
+                            value="pix"
+                            control={
+                                <Radio
+                                    sx={{
+                                        color: '#00695c',
+                                        '&.Mui-checked': { color: '#00695c' }
+                                    }}
+                                />
+                            }
+                            label="Pix"
+                        />
+                    </RadioGroup>
+                </FormControl>
+
+                {formaPagamento === 'cartaoCredito' && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <TextField
+                            label="Nome no Cartão"
+                            name="nomeCartao"
+                            value={cardDetails.nomeCartao}
+                            onChange={handleCardDetailChange}
+                            disabled={disabledFields.nomeCartao}
+                            error={!!errors.nomeCartao}
+                            helperText={errors.nomeCartao}
+                            fullWidth
+                            size="small"
+                        />
+                        <Box sx={{ position: 'relative' }}>
+                            <TextField
+                                label="Número do Cartão"
+                                name="numeroCartao"
+                                value={cardDetails.numeroCartao}
+                                onChange={handleCardDetailChange}
+                                disabled={disabledFields.numeroCartao}
+                                error={!!errors.numeroCartao}
+                                helperText={errors.numeroCartao || (cardBrand && getCardBrandIcon(cardBrand))}
+                                fullWidth
+                                size="small"
+                                inputProps={{
+                                    maxLength: 19,
+                                    autoComplete: 'cc-number',
+                                    'data-mask': '#### #### #### ####'
+                                }}
+                            />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <TextField
+                                label="Validade (MM/AA)"
+                                name="validade"
+                                value={cardDetails.validade}
+                                onChange={handleCardDetailChange}
+                                disabled={disabledFields.validade}
+                                error={!!errors.validade}
+                                helperText={errors.validade}
+                                fullWidth
+                                size="small"
+                            />
+                            <TextField
+                                label="CVV"
+                                name="cvv"
+                                value={cardDetails.cvv}
+                                onChange={handleCardDetailChange}
+                                disabled={disabledFields.cvv}
+                                error={!!errors.cvv}
+                                helperText={errors.cvv}
+                                type={showCVV ? 'text' : 'password'}
+                                InputProps={{
+                                    endAdornment: (
+                                        <IconButton
+                                            aria-label="toggle cvv visibility"
+                                            onClick={() => setShowCVV(!showCVV)}
+                                            edge="end"
+                                        >
+                                            {showCVV ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    ),
+                                }}
+                                fullWidth
+                                size="small"
+                                inputProps={{
+                                    maxLength: 3,
+                                    autoComplete: 'cc-csc'
+                                }}
+                            />
+                        </Box>
+                        <TextField
+                            select
+                            label="Número de Parcelas"
+                            value={installments}
+                            onChange={(e) => setInstallments(Number(e.target.value))}
+                            fullWidth
+                            size="small"
+                        >
+                            {[1, 2, 3, 4].map((parcel) => (
+                                <MenuItem key={parcel} value={parcel}>
+                                    {parcel}x {parcel === 1 ? 'à vista' : 'sem juros'}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                        {[
+                            { label: 'CEP', name: 'postalCode' },
+                            { label: 'Número do Endereço', name: 'addressNumber' },
+                            { label: 'Email', name: 'email' },
+                            { label: 'Telefone', name: 'mobilePhone' },
+                        ].map((field) => (
+                            <TextField
+                                key={field.name}
+                                label={field.label}
+                                name={field.name}
+                                value={cardHolderInfo[field.name]}
+                                onChange={handleCardHolderInfoChange}
+                                error={!!errors[field.name]}
+                                helperText={errors[field.name]}
+                                fullWidth
+                                size="small"
+                            />
+                        ))}
+                        <Button
+                            variant="contained"
+                            type="submit"
+                            disabled={loading}
+                            sx={{
+                                bgcolor: '#00695c',
+                                ':hover': { bgcolor: '#004d40' },
+                                height: 48
+                            }}
+                        >
+                            {loading ? <CircularProgress size={24} /> : 'Finalizar Pagamento'}
+                        </Button>
+                    </Box>
+                )}
+
+                {formaPagamento === 'pix' && (
+                    <Box sx={{ mt: 2 }}>
+                        {loading && !qrcode && (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                                <CircularProgress />
                             </Box>
+                        )}
 
-                            <TextField
-                                select
-                                label="Parcelas"
-                                value={installments}
-                                onChange={(e) => setInstallments(Number(e.target.value))}
-                                disabled={loading}
-                                fullWidth
-                                size="small"
-                            >
-                                {[1, 2, 3, 4].map((parcel) => (
-                                    <MenuItem key={parcel} value={parcel}>
-                                        {parcel}x {parcel === 1 ? 'à vista' : 'sem juros'}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
+                        {!loading && !qrcode && !isQrCodeUpdated && (
+                            <Box sx={{ textAlign: 'center', mt: 3 }}>
+                                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                                    O QR Code expirou. Clique abaixo para gerar um novo.
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    onClick={handlePixPayment}
+                                    sx={{
+                                        bgcolor: '#00695c',
+                                        ':hover': { bgcolor: '#004d40' }
+                                    }}
+                                >
+                                    Novo QR Code
+                                </Button>
+                            </Box>
+                        )}
 
-                            <TextField
-                                {...register('email')}
-                                label="Email"
-                                error={!!errors.email}
-                                helperText={errors.email?.message}
-                                disabled={loading}
-                                fullWidth
-                                size="small"
-                                type="email"
-                            />
-
-                            <TextField
-                                {...register('mobilePhone')}
-                                label="Telefone"
-                                error={!!errors.mobilePhone}
-                                helperText={errors.mobilePhone?.message}
-                                disabled={loading}
-                                fullWidth
-                                size="small"
-                            />
-
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                disabled={loading}
+                        {!loading && qrcode && paymentStatus !== 'PAID' && (
+                            <Box
                                 sx={{
-                                    mt: 2,
-                                    bgcolor: '#00695c',
-                                    '&:hover': { bgcolor: '#004d40' },
-                                    height: 48
+                                    textAlign: 'center',
+                                    border: '1px solid #00695c',
+                                    borderRadius: 2,
+                                    p: 3,
                                 }}
                             >
-                                {loading ? (
-                                    <CircularProgress size={24} sx={{ color: 'white' }} />
-                                ) : (
-                                    'Finalizar Pagamento'
-                                )}
-                            </Button>
-                        </Box>
-                    )}
-
-                    {formaPagamento === 'pix' && (
-                        <Box sx={{ mt: 2 }}>
-                            {loading && !qrcode && (
-                                <Box sx={{ 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
-                                    alignItems: 'center',
-                                    gap: 2,
-                                    p: 4 
-                                }}>
-                                    <CircularProgress size={40} sx={{ color: '#00695c' }} />
-                                    <Typography>
-                                        Gerando QR Code PIX...
-                                    </Typography>
-                                </Box>
-                            )}
-
-                            {!loading && !qrcode && !isQrCodeUpdated && (
-                                <Paper 
-                                    elevation={0} 
-                                    sx={{ 
-                                        p: 4,
-                                        textAlign: 'center',
-                                        bgcolor: '#f8f8f8',
-                                        border: '1px dashed #00695c'
+                                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                                    Escaneie o QR Code para pagar:
+                                </Typography>
+                                <img
+                                    src={`data:image/png;base64,${qrcode}`}
+                                    alt="QR Code PIX"
+                                    style={{
+                                        width: '100%',
+                                        maxWidth: 300,
+                                        height: 'auto',
+                                        margin: '0 auto'
                                     }}
-                                >
-                                    <Typography variant="h6" gutterBottom color="primary">
-                                        QR Code Expirado
-                                    </Typography>
-                                    <Typography sx={{ mb: 3 }}>
-                                        O QR Code expirou. Clique abaixo para gerar um novo.
-                                    </Typography>
-                                    <Button
-                                        variant="contained"
-                                        onClick={handlePixPayment}
-                                        sx={{
-                                            bgcolor: '#00695c',
-                                            '&:hover': { bgcolor: '#004d40' }
-                                        }}
-                                    >
-                                        Gerar Novo QR Code
-                                    </Button>
-                                </Paper>
-                            )}
-
-                            {!loading && qrcode && paymentStatus !== 'PAID' && (
-                                <Paper 
-                                    elevation={0}
+                                />
+                                <Button
+                                    variant="contained"
+                                    onClick={copyToClipboard}
+                                    disabled={!qrcode}
                                     sx={{
-                                        p: 4,
-                                        textAlign: 'center',
-                                        bgcolor: '#f8f8f8',
-                                        border: '1px solid #00695c'
+                                        mt: 2,
+                                        bgcolor: '#00695c',
+                                        ':hover': { bgcolor: '#004d40' },
+                                        width: '100%',
+                                        maxWidth: 300
                                     }}
                                 >
-                                    <Typography variant="h6" gutterBottom color="primary">
-                                        Pague com PIX
-                                    </Typography>
-                                    
-                                    <Box sx={{ 
-                                        bgcolor: 'white',
-                                        p: 3,
-                                        borderRadius: 1,
-                                        mb: 3,
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                    }}>
-                                        <img
-                                            src={`data:image/png;base64,${qrcode}`}
-                                            alt="QR Code PIX"
-                                            style={{
-                                                width: '100%',
-                                                maxWidth: 250,
-                                                height: 'auto'
-                                            }}
-                                        />
-                                    </Box>
-
-                                    <Button
-                                        variant="contained"
-                                        onClick={copyToClipboard}
-                                        disabled={!qrcode}
-                                        sx={{
-                                            bgcolor: '#00695c',
-                                            '&:hover': { bgcolor: '#004d40' },
-                                            width: '100%',
-                                            maxWidth: 300,
-                                            mb: 2
-                                        }}
-                                    >
-                                        Copiar código PIX
-                                    </Button>
-
-                                    <Typography variant="body2" color="textSecondary">
-                                        Aguardando pagamento... 
-                                        {verificationCount > 0 && ` (Verificação ${verificationCount}/5)`}
-                                    </Typography>
-                                </Paper>
-                            )}
-                        </Box>
-                    )}
-                </Box>
-            </Paper>
+                                    Copiar código PIX
+                                </Button>
+                            </Box>
+                        )}
+                    </Box>
+                )}
+            </Box>
 
             <Snackbar
                 open={snackbar.open}
