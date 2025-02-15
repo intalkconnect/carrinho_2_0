@@ -16,16 +16,16 @@ import {
     Toolbar,
     Container,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import { CircleCheckBig, CircleUser, Package, CreditCard, CircleChevronDown, CircleChevronUp } from "lucide-react";
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined'; // Importa o ícone
 
 import { Snackbar, Alert } from '@mui/material';
 // Importe as imagens
-import Logo1 from '../assets/logo.webp';
+import Logo1 from '../assets/logonova.png';
 import LogoCentro from '../assets/logo1.png';
+import { calculateTotalValue, handleCheckoutSubmission, handleSnackbarOpen } from '../utils/helpers';
 
+const primary = process.env.REACT_APP_PRIMARY_COLOR
 const Checkout = () => {
     const { orcamentos, updateTotalValue, status } = useOrcamentos();
     const [expanded, setExpanded] = useState('step1');
@@ -59,64 +59,53 @@ const Checkout = () => {
         setSnackbar((prev) => ({ ...prev, open: false }));
     };
 
-useEffect(() => {
-    const originalStyles = {
-        margin: document.body.style.margin,
-        padding: document.body.style.padding,
-        overflowX: document.body.style.overflowX
-    };
-    
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.overflowX = 'hidden';
-    
-    return () => {
-        document.body.style.margin = originalStyles.margin;
-        document.body.style.padding = originalStyles.padding;
-        document.body.style.overflowX = originalStyles.overflowX;
-    };
-}, []);
-
-    // Cálculo do valor total
     useEffect(() => {
-        const calculateTotal = () => {
-            const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
-            const total = produtosValidos.reduce(
-                (sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido,
-                0
-            ) + parseFloat(formData.frete || 0);
-            setTotalValue(total);
+        const originalStyles = {
+            margin: document.body.style.margin,
+            padding: document.body.style.padding,
+            overflowX: document.body.style.overflowX
         };
 
-        calculateTotal();
-    }, [orcamentos, formData.frete]); // Atualiza sempre que os produtos ou frete mudarem
+        document.body.style.margin = '0';
+        document.body.style.padding = '0';
+        document.body.style.overflowX = 'hidden';
 
-if (!status) {
-    return (
-        <Box
-            sx={{
-                minHeight: '100vh',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                bgcolor: '#ffffff',
-            }}
-        >
-            <img
-                src={LogoCentro} // Substitua pelo caminho da sua imagem
-                alt="Carregando"
-                style={{
-                    maxWidth: '300px',
-                    maxHeight: '300px',
-                    width: '100%',
-                    height: 'auto',
+        return () => {
+            document.body.style.margin = originalStyles.margin;
+            document.body.style.padding = originalStyles.padding;
+            document.body.style.overflowX = originalStyles.overflowX;
+        };
+    }, []);
+
+    useEffect(() => {
+        setTotalValue(calculateTotalValue(orcamentos, formData.frete));
+    }, [orcamentos, formData.frete]);
+
+    if (!status) {
+        return (
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    bgcolor: '#ffffff',
                 }}
-            />
-        </Box>
-    );
-}
-    
-    // Exibe mensagens baseadas no status do orçamento
+            >
+                <img
+                    src={LogoCentro} // Substitua pelo caminho da sua imagem
+                    alt="Carregando"
+                    style={{
+                        maxWidth: '300px',
+                        maxHeight: '300px',
+                        width: '100%',
+                        height: 'auto',
+                    }}
+                />
+            </Box>
+        );
+    }
+
     if (status === 'expired') {
         return (
             <Box
@@ -153,12 +142,12 @@ if (!status) {
             >
                 <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#ff9800', marginBottom: 2 }} />
                 <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
-                   Essa compra já foi finalizada.
+                    Essa compra já foi finalizada.
                 </Typography>
             </Box>
         );
     }
-   
+
     if (status !== 'confirmed' && status !== 'expired' && status !== 'pending') {
         return (
             <Box
@@ -182,99 +171,12 @@ if (!status) {
             </Box>
         );
     }
-    
+
 
     // Função para coletar dados e enviar para a API
-    const handleCheckoutSubmission = () => {
-    // Verifica se `orcamentos` é válido e é uma array
-    if (!Array.isArray(orcamentos) || orcamentos.length === 0) {
-        console.log("Erro: Nenhum produto selecionado.");
-        setSnackbar({
-            open: true, message: 'Nenhum produto selecionado. Adicione produtos antes de finalizar o pedido.', severity: 'info'
-        });
-        return;
-    }
-
-    // Filtra os produtos válidos (quantidade maior que 0)
-    const produtosValidos = orcamentos.filter((produto) => produto.orc_qt_potes > 0);
-    console.log("Produtos válidos:", produtosValidos);
-
-    if (produtosValidos.length === 0) {
-        console.log("Erro: Nenhum produto com quantidade válida.");
-        setSnackbar({
-            open: true, message: 'Nenhum produto com quantidade válida. Ajuste o carrinho antes de finalizar o pedido.', severity: 'warning'
-        });
-        return;
-    }
-
-    const id = window.location.pathname.replace('/', '');
-    console.log('Caminho:', window.location.pathname);
-    console.log('ID do checkout:', id);
-
-    const orcPaciente = orcamentos[0]?.orc_paciente;
-    if (!orcPaciente) {
-        console.log("Erro: Dados do paciente não encontrados.");
-        setSnackbar({
-            open: true, 
-            message: 'Erro ao processar o cliente. Verifique os dados e tente novamente.', 
-            severity: 'error'
-        });
-        return orcamentos;
-    }
-
-    // Monta o payload
-    const payload = {
-        checkout: id,
-        dataFim: new Date().toISOString(),
-        dadosPessoais: {
-            nomeCompleto: formData.nomeCompleto,
-            cpf: formData.cpf,
-            rg: formData.rg,
-            celular: formData.celular,
-            email: formData.email,
-        },
-        enderecoEntrega: formData.tipoEntrega === 'entrega' ? {
-            endereco: formData.endereco,
-            numero: formData.numero,
-            complemento: formData.complemento,
-            bairro: formData.bairro,
-            cidade: formData.cidade,
-            estado: formData.estado,
-            cep: formData.cep,
-            tipoFrete: formData.tipoFrete
-        } : "Local",
-        localRetirada: formData.tipoEntrega === 'retirada' ? formData.localRetirada : null,
-        formaPagamento: formData.formaPagamento || "pix",
-        produtos: produtosValidos,
-        frete: parseFloat(formData.frete),
-        total: produtosValidos.reduce((sum, produto) => sum + produto.orc_qt_potes * produto.orc_valor_liquido, 0) + parseFloat(formData.frete),
-        identity: orcPaciente.replace(/^B/, '') + '@wa.gw.msging.net'
+    const handleCheckout = () => {
+        handleCheckoutSubmission(orcamentos, formData, setSnackbar);
     };
-    console.log('Payload enviado:', JSON.stringify(payload, null, 2));
-
-    // Envia o payload para a API
-    fetch('https://endpoints-checkout.rzyewu.easypanel.host/finish-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    })
-        .then((response) => {
-            if (response.ok) {
-                console.log("Pedido finalizado com sucesso.");
-                setSnackbar({
-                    open: true, message: 'Pedido finalizado com sucesso!', severity: 'success'
-                });
-            } else {
-                console.log("Erro ao finalizar pedido:", response);
-                setSnackbar({ open: true, message: 'Erro ao finalizar pedido. Tente novamente.', severity: 'error' });
-            }
-        })
-        .catch((error) => {
-            console.error("Erro ao conectar ao servidor:", error);
-            setSnackbar({ open: true, message: 'Erro ao conectar ao servidor. Verifique sua conexão e tente novamente.', severity: 'error' });
-        });
-};
-
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -301,9 +203,11 @@ if (!status) {
             setIsStep1Completed(true);
             setExpanded('step2');
         } else {
-            setSnackbar({
-                open: true, message: 'Por favor, preencha todos os campos obrigatórios.', severity: 'warning'
+            handleSnackbarOpen(setSnackbar, {
+                message: 'Por favor, preencha todos os campos obrigatórios.',
+                severity: 'warning',
             });
+
         }
     };
 
@@ -334,7 +238,7 @@ if (!status) {
                     color: '#555',
                 }}
             >
-                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: '#00695c', marginBottom: 2 }} />
+                <ShoppingCartOutlinedIcon sx={{ fontSize: 80, color: primary, marginBottom: 2 }} />
                 <Typography variant="h5" sx={{ textAlign: 'center', marginBottom: 2 }}>
                     Seu carrinho está vazio.
                 </Typography>
@@ -344,7 +248,7 @@ if (!status) {
             </Box>
         );
     }
-    
+
 
     return (
         <Box
@@ -355,28 +259,71 @@ if (!status) {
                 padding: 0,
                 width: '100vw',
                 overflowX: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
             }}
         >
+
             <AppBar
-                id="header" // Adicionado ID para facilitar a captura
+                id="header"
                 position="static"
                 elevation={0}
                 sx={{
-                    bgcolor: '#00BFBE',
-                    margin: 0,
-                    padding: 0,
+                    bgcolor: '#ffffff',  // Mudando para branco para um look mais clean
+                    borderBottom: '1px solid rgba(0, 0, 0, 0.1)',  // Adicionando uma borda sutil
                 }}
             >
-                <Toolbar>
-                    <Container sx={{
-                        padding: 0,
-                        maxWidth: '100%',
-                    }}>
-                        <img src={Logo1} alt="Logo 1" style={{ height: 80 }} />
-                    </Container>
-                </Toolbar>
+                <Container maxWidth="lg">
+                    <Toolbar
+                        sx={{
+                            py: 1,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <img
+                                src={Logo1}
+                                alt="Lantana"
+                                style={{
+                                    height: 60,
+                                    objectFit: 'contain'
+                                }}
+                            />
+                            <Box
+                                sx={{
+                                    borderLeft: '2px solid #00BFBE',
+                                    pl: 3,
+                                    display: { xs: 'none', md: 'block' }
+                                }}
+                            >
+                                <Typography
+                                    variant="h6"
+                                    sx={{
+                                        color: primary,
+                                        fontWeight: 600,
+                                        lineHeight: 1.2
+                                    }}
+                                >
+                                    Checkout Seguro
+                                </Typography>
+                            </Box>
+                        </Box>
+
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                color: primary
+                            }}
+                        >
+                        </Box>
+                    </Toolbar>
+                </Container>
             </AppBar>
-            
+
             <Container sx={{ marginTop: 3, marginBottom: 3 }}>
                 <Grid container spacing={3}>
                     <Grid
@@ -410,19 +357,39 @@ if (!status) {
                                 marginBottom: 2,
                                 border: '1px solid #ddd',
                                 borderRadius: 2,
+                                '&.Mui-disabled': {
+                                    bgcolor: '#F5F9F9',
+                                    opacity: 0.9
+                                }
                             }}
                         >
                             <AccordionSummary
-                                expandIcon={<ExpandMoreIcon sx={{ color: '#00695c' }} />}
-                                sx={{ bgcolor: expanded === 'step1' ? '#e8f5e9' : '#ffffff' }}
+                                expandIcon={
+                                    <div style={{
+                                        transform: expanded === 'step1' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.3s ease'
+                                    }}>
+                                        {expanded === 'step1' ? (
+                                            <CircleChevronUp color= {primary} />
+                                        ) : (
+                                            <CircleChevronDown color= {primary} />
+                                        )}
+                                    </div>
+                                }
+                                sx={{
+                                    bgcolor: expanded === 'step1' ? '#E5F6F6' : '#ffffff',
+                                    '&:hover': {
+                                        bgcolor: '#F0FAFA'
+                                    }
+                                }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     {isStep1Completed ? (
-                                        <CheckCircleIcon sx={{ color: '#81c784' }} />
+                                        <CircleCheckBig color= {primary} />
                                     ) : (
-                                        <RadioButtonUncheckedIcon sx={{ color: '#00695c' }} />
+                                        <CircleUser color= {primary} />
                                     )}
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#00695c' }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: primary }}>
                                         Dados Pessoais
                                     </Typography>
                                 </Box>
@@ -444,19 +411,39 @@ if (!status) {
                                 marginBottom: 2,
                                 border: '1px solid #ddd',
                                 borderRadius: 2,
+                                '&.Mui-disabled': {
+                                    bgcolor: '#F5F9F9',
+                                    opacity: 0.9
+                                }
                             }}
                         >
                             <AccordionSummary
-                                expandIcon={<ExpandMoreIcon sx={{ color: '#00695c' }} />}
-                                sx={{ bgcolor: expanded === 'step2' ? '#e8f5e9' : '#ffffff' }}
+                                expandIcon={
+                                    <div style={{
+                                        transform: expanded === 'step2' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.3s ease'
+                                    }}>
+                                        {expanded === 'step2' ? (
+                                            <CircleChevronUp color= {primary} />
+                                        ) : (
+                                            <CircleChevronDown color= {primary} />
+                                        )}
+                                    </div>
+                                }
+                                sx={{
+                                    bgcolor: expanded === 'step2' ? '#E5F6F6' : '#ffffff',
+                                    '&:hover': {
+                                        bgcolor: '#F0FAFA'
+                                    }
+                                }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     {isStep2Completed ? (
-                                        <CheckCircleIcon sx={{ color: '#81c784' }} />
+                                        <CircleCheckBig color= {primary} />
                                     ) : (
-                                        <RadioButtonUncheckedIcon sx={{ color: '#00695c' }} />
+                                        <Package color= {primary} />
                                     )}
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#00695c' }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: primary }}>
                                         Entrega ou Retirada
                                     </Typography>
                                 </Box>
@@ -479,15 +466,35 @@ if (!status) {
                                 marginBottom: 2,
                                 border: '1px solid #ddd',
                                 borderRadius: 2,
+                                '&.Mui-disabled': {
+                                    bgcolor: '#F5F9F9',
+                                    opacity: 0.9
+                                }
                             }}
                         >
                             <AccordionSummary
-                                expandIcon={<ExpandMoreIcon sx={{ color: '#00695c' }} />}
-                                sx={{ bgcolor: expanded === 'step3' ? '#e8f5e9' : '#ffffff' }}
+                                expandIcon={
+                                    <div style={{
+                                        transform: expanded === 'step3' ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.3s ease'
+                                    }}>
+                                        {expanded === 'step3' ? (
+                                            <CircleChevronUp color= {primary} />
+                                        ) : (
+                                            <CircleChevronDown color= {primary} />
+                                        )}
+                                    </div>
+                                }
+                                sx={{
+                                    bgcolor: expanded === 'step3' ? '#E5F6F6' : '#ffffff',
+                                    '&:hover': {
+                                        bgcolor: '#F0FAFA'
+                                    }
+                                }}
                             >
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <RadioButtonUncheckedIcon sx={{ color: '#00695c' }} />
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#00695c' }}>
+                                    <CreditCard color= {primary} />
+                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: primary }}>
                                         Formas de Pagamento
                                     </Typography>
                                 </Box>
@@ -497,16 +504,73 @@ if (!status) {
                                     formData={formData}
                                     handleInputChange={handleInputChange}
                                     prevStep={() => setExpanded('step2')}
-                                    finalizeCheckout={handleCheckoutSubmission} // Passa a função
-                                    totalValue={totalValue} // Total agora é passado para Step3
-
+                                    finalizeCheckout={handleCheckout}
+                                    totalValue={totalValue}
                                 />
                             </AccordionDetails>
                         </Accordion>
+
                     </Grid>
                 </Grid>
             </Container>
-           
+            <Box
+                component="footer"
+                sx={{
+                    bgcolor: '#f8f8f8',
+                    borderTop: '1px solid #e0e0e0',
+                    py: 4,
+                    px: 2,
+                    mt: 'auto'
+                }}
+            >
+                <Container maxWidth="lg">
+                    <Typography
+                        variant="body1"
+                        align="center"
+                        sx={{
+                            color: '#666666',
+                            fontSize: '0.9rem',
+                            lineHeight: 1.8,
+                            fontWeight: 500
+                        }}
+                    >
+                        LANTANA LTDA
+                        <br />
+                        CNPJ: 03.915.693/0001-30 | Farmacêutica Responsável: Andrea Kamizaki Lima | CRF: 12045
+                    </Typography>
+
+                    <Typography
+                        variant="body1"
+                        align="center"
+                        sx={{
+                            color: '#666666',
+                            fontSize: '0.9rem',
+                            mt: 3,
+                            fontStyle: 'italic',
+                            lineHeight: 1.8
+                        }}
+                    >
+                        As informações contidas neste site não devem ser usadas para automedicação e não substituem,
+                        em hipótese alguma, as orientações dadas pelo profissional da área médica.
+                        Somente o médico está apto a diagnosticar qualquer problema de saúde e prescrever o tratamento adequado.
+                    </Typography>
+
+                    <Typography
+                        variant="body1"
+                        align="center"
+                        sx={{
+                            color: '#666666',
+                            fontSize: '0.9rem',
+                            mt: 3,
+                            fontWeight: 500,
+                            lineHeight: 1.8
+                        }}
+                    >
+                        Ao persistirem os sintomas, um médico deverá ser consultado.
+                    </Typography>
+                </Container>
+            </Box>
+
             {isModalVisible && (
                 <Modal
                     isVisible={isModalVisible}
