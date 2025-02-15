@@ -33,7 +33,6 @@ const Checkout = () => {
     const [modalItems, setModalItems] = useState([]);
     const [totalValue, setTotalValue] = useState(0); // Adicionado para cálculo do valor total
 
-
     const [formData, setFormData] = useState({
         nomeCompleto: '',
         cpf: '',
