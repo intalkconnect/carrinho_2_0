@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Box, TextField, Button } from '@mui/material';
 
+const primary = process.env.REACT_APP_PRIMARY_COLOR
+
 const validateCpfCnpj = (value) => {
     const cleaned = value.replace(/\D/g, '');
 
@@ -175,19 +177,25 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                     InputLabelProps={{ shrink: true }}
                 />
 
-                <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleNext}
-                    sx={{
-                        alignSelf: 'flex-end',
-                        marginTop: 2,
-                        bgcolor: '#00695c',
-                        ':hover': { bgcolor: '#004d40' },
-                    }}
-                >
-                    Salvar e avançar
-                </Button>
+<Button
+    variant="outlined"
+    color="primary"
+    onClick={handleNext}
+    sx={{
+        alignSelf: 'flex-end',
+        marginTop: 2,
+        borderColor: primary, // Define a cor da borda
+        color: primary, // Define a cor do texto
+        ':hover': {
+            borderColor: '#004d40', // Cor da borda no hover
+            backgroundColor: 'transparent', // Fundo transparente no hover
+            color: '#004d40', // Cor do texto no hover
+        },
+    }}
+>
+    Salvar e avançar
+</Button>
+
             </Box>
         </Box>
     );
