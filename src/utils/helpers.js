@@ -11,7 +11,6 @@ export function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 }
 
-
 export const openModal = (itens) => {
     // Mostra o modal e exibe os itens
     const modalBody = document.getElementById("modalBody");
