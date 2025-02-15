@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import { consultarCEP } from '../services/api';
 
+const primary = process.env.REACT_APP_PRIMARY_COLOR
+
 const locaisRetirada = [
   {
     id: 'Centro',
@@ -282,22 +284,76 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
     <Box sx={{ p: 3 }}>
       <Box component="form" noValidate autoComplete="off" sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '600px' }}>
         <Typography variant="body1">Escolha a melhor opção para receber ou retirar o seu produto.</Typography>
-        <FormControl component="fieldset" sx={{ mb: 3 }} error={!!errors.tipoEntrega}>
-          <RadioGroup
-            name="tipoEntrega"
-            value={tipoEntrega}
-            onChange={handleOptionChange}
-            sx={{ flexDirection: 'row', gap: 2, mt: 1 }}
-          >
-            <FormControlLabel value="entrega" control={<Radio />} label="Entrega" />
-            <FormControlLabel value="retirada" control={<Radio />} label="Retirada" />
-          </RadioGroup>
-          {errors.tipoEntrega && (
-            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-              {errors.tipoEntrega}
-            </Typography>
-          )}
-        </FormControl>
+        <FormControl component="fieldset" sx={{ mb: 2 }} error={!!errors.tipoEntrega}>
+  <RadioGroup
+    name="tipoEntrega"
+    value={tipoEntrega}
+    onChange={handleOptionChange}
+    sx={{
+      display: 'flex',
+      flexDirection: 'row',
+      gap: 1.5, // Gap reduzido
+      justifyContent: 'space-evenly', // Alinhamento equilibrado
+      alignItems: 'center',
+      mt: 1,
+    }}
+
+  >
+    <FormControlLabel
+      value="entrega"
+      control={
+        <Radio
+          sx={{
+            color: primary,
+            '& .MuiSvgIcon-root': {
+              borderColor: primary, // Linha do rádio quando não selecionado
+            },
+            '&:hover': {
+              backgroundColor: 'rgba(0, 121, 107, 0.1)', // Efeito hover suave
+            },
+            '&.Mui-checked': { color: primary }
+          }}
+        />
+      }
+      label="Entrega"
+      sx={{
+        '& .MuiFormControlLabel-label': {
+          fontWeight: 500,
+          color: '#333'
+        },
+      }}
+    />
+    <FormControlLabel
+      value="retirada"
+      control={
+        <Radio
+          sx={{
+            color: primary,
+            '& .MuiSvgIcon-root': {
+              borderColor: primary, // Linha do rádio quando não selecionado
+            },
+            '&:hover': {
+              backgroundColor: 'rgba(0, 121, 107, 0.1)', // Efeito hover suave
+            },
+            '&.Mui-checked': { color: primary }
+          }}
+        />
+      }
+      label="Retirada"
+      sx={{
+        '& .MuiFormControlLabel-label': {
+          fontWeight: 500,
+          color: '#333'
+        },
+      }}
+    />
+  </RadioGroup>
+  {errors.tipoEntrega && (
+    <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+      {errors.tipoEntrega}
+    </Typography>
+  )}
+</FormControl>
 
         {tipoEntrega === 'entrega' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -397,66 +453,99 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
         )}
 
         {modalVisible && (
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              bgcolor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1300,
-            }}
-          >
-            <Box
-              sx={{
-                width: '300px',
-                bgcolor: 'white',
-                borderRadius: '8px',
-                padding: '16px',
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Escolha o tipo de entrega
-              </Typography>
-              {metodosFrete.pac !== null && (
-                <Button
-                  variant="contained"
-                  sx={{ mb: 1, width: '100%' }}
-                  onClick={() => {
-                    setFrete(metodosFrete.pac);
-                    handleInputChange({ target: { name: 'frete', value: metodosFrete.pac.toFixed(2) } });
-                    handleInputChange({ target: { name: 'tipoFrete', value: 'PAC' } });
-                    setModalVisible(false);
-                    nextStep();
-                  }}
-                >
-                  PAC - R$ {metodosFrete.pac.toFixed(2)}
-                </Button>
-              )}
-              {metodosFrete.sedex !== null && (
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  sx={{ width: '100%' }}
-                  onClick={() => {
-                    setFrete(metodosFrete.sedex);
-                    handleInputChange({ target: { name: 'frete', value: metodosFrete.sedex.toFixed(2) } });
-                    handleInputChange({ target: { name: 'tipoFrete', value: 'SEDEX' } });
-                    setModalVisible(false);
-                    nextStep();
-                  }}
-                >
-                  SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
-                </Button>
-              )}
-            </Box>
-          </Box>
-        )}
+  <Box
+    sx={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      bgcolor: 'rgba(0, 0, 0, 0.3)', // Fundo suave e sutil
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1300,
+      transition: 'all 0.3s ease', // Suaviza a transição
+    }}
+  >
+    <Box
+      sx={{
+        width: '90%',
+        maxWidth: '400px',
+        bgcolor: '#fff',
+        borderRadius: '12px',
+        padding: '20px',
+        textAlign: 'center',
+        boxShadow: '0px 6px 24px rgba(0, 0, 0, 0.12)', // Sombra suave e moderna
+        transition: 'all 0.3s ease', // Transição suave
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          mb: 3,
+          fontWeight: '500',
+          color: '#333', // Texto escuro para contraste
+        }}
+      >
+        Escolha o tipo de entrega
+      </Typography>
+      {metodosFrete.pac !== null && (
+        <Button
+          variant="outlined"
+          sx={{
+            mb: 2,
+            width: '100%',
+            borderColor: '#00796b', // Cor suave para borda
+            color: '#00796b', // Texto na mesma cor
+            fontWeight: '500',
+            '&:hover': {
+              borderColor: '#004d40', // Cor no hover
+              color: '#004d40', // Texto no hover
+              backgroundColor: 'rgba(0, 121, 107, 0.1)', // Cor de fundo suave no hover
+            },
+            transition: 'all 0.2s ease',
+          }}
+          onClick={() => {
+            setFrete(metodosFrete.pac);
+            handleInputChange({ target: { name: 'frete', value: metodosFrete.pac.toFixed(2) } });
+            handleInputChange({ target: { name: 'tipoFrete', value: 'PAC' } });
+            setModalVisible(false);
+            nextStep();
+          }}
+        >
+          PAC - R$ {metodosFrete.pac.toFixed(2)}
+        </Button>
+      )}
+      {metodosFrete.sedex !== null && (
+        <Button
+          variant="outlined"
+          sx={{
+            width: '100%',
+            borderColor: '#0288d1', // Cor suave de borda (azul)
+            color: '#0288d1', // Texto na mesma cor
+            fontWeight: '500',
+            '&:hover': {
+              borderColor: '#0277bd', // Cor no hover (azul escuro)
+              color: '#0277bd', // Texto no hover
+              backgroundColor: 'rgba(2, 136, 209, 0.1)', // Cor de fundo suave no hover
+            },
+            transition: 'all 0.2s ease',
+          }}
+          onClick={() => {
+            setFrete(metodosFrete.sedex);
+            handleInputChange({ target: { name: 'frete', value: metodosFrete.sedex.toFixed(2) } });
+            handleInputChange({ target: { name: 'tipoFrete', value: 'SEDEX' } });
+            setModalVisible(false);
+            nextStep();
+          }}
+        >
+          SEDEX - R$ {metodosFrete.sedex.toFixed(2)}
+        </Button>
+      )}
+    </Box>
+  </Box>
+)}
 
         {tipoEntrega === 'retirada' && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -500,8 +589,8 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
                   variant="outlined"
                   sx={{
                     mt: 2,
-                    color: '#00695c',
-                    borderColor: '#00695c',
+                    color: primary,
+                    borderColor: primary,
                     textTransform: 'none',
                     ':hover': { bgcolor: '#004d40', color: '#fff' },
                   }}
@@ -521,16 +610,22 @@ const Step2 = ({ formData, handleInputChange, nextStep }) => {
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-          <Button  variant="contained"
-                    color="primary"
-                    onClick={handleNext}
-                    sx={{
-                        alignSelf: 'flex-end',
-                        marginTop: 2,
-                        bgcolor: '#00695c',
-                        ':hover': { bgcolor: '#004d40' },
-                    }}
-                >
+<Button
+    variant="outlined"
+    color="primary"
+    onClick={handleNext}
+    sx={{
+        alignSelf: 'flex-end',
+        marginTop: 2,
+        borderColor: primary, // Define a cor da borda
+        color: primary, // Define a cor do texto
+        ':hover': {
+            borderColor: '#004d40', // Cor da borda no hover
+            backgroundColor: 'transparent', // Fundo transparente no hover
+            color: '#004d40', // Cor do texto no hover
+        },
+    }}
+>
             Salvar e avançar
           </Button>
         </Box>
