@@ -20,12 +20,9 @@ import {
   Card,
   CardContent
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import { ExpandMore, ExpandLess } from '@mui/icons-material';
-
-
+import { LayoutList, Rocket } from "lucide-react";
 
 const CrudPage = () => {
   const [items, setItems] = useState([]);
@@ -195,9 +192,18 @@ const CrudPage = () => {
 
   return (
     <Box sx={{ padding: 4, backgroundColor: '#f4f6f8' }}>
-      <Typography variant="h4" sx={{ marginBottom: 3, color: '#333' }}>
-        Gerenciador de orçamentos
-      </Typography>
+      <Typography 
+    variant="h4" 
+    sx={{ 
+        marginBottom: 3,
+        color: '#1E293B',  // Cor mais neutra e moderna
+        fontWeight: 600,
+        fontSize: '1.75rem',
+        letterSpacing: '-0.02em'
+    }}
+>
+    Gerenciador
+</Typography>
 
       {/* Card com o contador de itens */}
       <Card sx={{ marginBottom: 3, maxWidth: 300, margin: '0 auto' }}>
@@ -287,10 +293,10 @@ const CrudPage = () => {
                 <TableCell align="center">
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                     <IconButton onClick={() => handleShowDetails(item)} color="primary">
-                      <VisibilityIcon />
+                      <LayoutList />
                     </IconButton>
                     <IconButton onClick={() => handleComplete(item)} color="success">
-                      <CheckCircleIcon />
+                      <Rocket />
                     </IconButton>
                   </Box>
                 </TableCell>
