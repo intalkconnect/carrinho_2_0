@@ -134,12 +134,13 @@ const Step1 = ({ formData, handleInputChange, nextStep }) => {
                 />
 
                 <TextField
-                    label="RG (opcional)"
+                    label="RG"
                     name="rg"
                     value={formData.rg || ''}
                     onChange={handleInputChange}
                     fullWidth
                     size="small"
+                    required
                     InputLabelProps={{ shrink: true }}
                 />
 
